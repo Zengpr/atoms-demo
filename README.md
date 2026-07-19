@@ -4,7 +4,7 @@
 
 **深度赋智 (DeepSeek/ROOT) 面试项目** · 目标岗位：AI Native 全栈工程师
 
-[![Demo](https://img.shields.io/badge/Demo-在线体验-blue?style=for-the-badge)](https://atoms-demo.vercel.app)
+[![Demo](https://img.shields.io/badge/Demo-在线体验-blue?style=for-the-badge)](https://frontend-theta-inky-12.vercel.app)
 [![GitHub](https://img.shields.io/badge/GitHub-源码仓库-black?style=for-the-badge&logo=github)](https://github.com/Zengpr/atoms-demo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
