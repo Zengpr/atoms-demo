@@ -10,26 +10,21 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str = ""
     LLM_MODEL: str = "agnes-2.0-flash"
     MOCK_MODE: bool = False
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS_STR: str = "http://localhost:3000"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
 
     model_config = {"env_file": [".env", ".env.local"], "env_file_encoding": "utf-8"}
 
-    @classmethod
-    def customize_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings):
-        return (init_settings, env_settings, dotenv_settings, file_secret_settings)
-
-
-def _parse_cors():
-    import os
-    cors = os.environ.get("CORS_ORIGINS", "")
-    if cors:
+    @property
+    def CORS_ORIGINS(self) -> List[str]:
+        raw = self.CORS_ORIGINS_STR
         try:
-            return json.loads(cors)
+            result = json.loads(raw)
+            if isinstance(result, list):
+                return result
         except (json.JSONDecodeError, TypeError):
-            return [c.strip() for c in cors.split(",") if c.strip()]
-    return ["http://localhost:3000"]
+            pass
+        return [c.strip() for c in raw.split(",") if c.strip()]
 
 
 settings = Settings()
-settings.CORS_ORIGINS = _parse_cors()
