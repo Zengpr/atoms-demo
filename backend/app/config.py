@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List
+import json
 
 
 class Settings(BaseSettings):
@@ -14,5 +15,21 @@ class Settings(BaseSettings):
 
     model_config = {"env_file": [".env", ".env.local"], "env_file_encoding": "utf-8"}
 
+    @classmethod
+    def customize_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings):
+        return (init_settings, env_settings, dotenv_settings, file_secret_settings)
+
+
+def _parse_cors():
+    import os
+    cors = os.environ.get("CORS_ORIGINS", "")
+    if cors:
+        try:
+            return json.loads(cors)
+        except (json.JSONDecodeError, TypeError):
+            return [c.strip() for c in cors.split(",") if c.strip()]
+    return ["http://localhost:3000"]
+
 
 settings = Settings()
+settings.CORS_ORIGINS = _parse_cors()
