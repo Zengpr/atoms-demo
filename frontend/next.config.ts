@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   async rewrites() {
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return [];
+    }
     return [
       {
         source: "/api/:path*",

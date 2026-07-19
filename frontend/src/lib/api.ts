@@ -1,6 +1,6 @@
 import type { User, Project, Message, CreateProjectData, ChatMode } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const SSE_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 class ApiError extends Error {
