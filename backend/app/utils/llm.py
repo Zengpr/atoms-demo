@@ -276,7 +276,11 @@ class LLMProvider:
             return _generate_landing_html()
         if any(w in prompt for w in ["calculator", "tool", "converter"]):
             return self._calculator_html()
-        if any(w in prompt for w in ["game", "2048", "1024", "snake", "tetris", "puzzle", "play"]):
+        if any(w in prompt for w in ["snake"]):
+            return self._snake_html()
+        if any(w in prompt for w in ["2048", "1024"]):
+            return self._game_2048_html()
+        if any(w in prompt for w in ["game", "tetris", "puzzle", "play"]):
             return self._game_2048_html()
         if any(w in prompt for w in ["todo", "task", "list", "checklist"]):
             return self._todo_html()
@@ -551,6 +555,10 @@ function percent(){current=String(parseFloat(current)/100);updateDisplay()}
     def _ecommerce_html() -> str:
         return ECOMMERCE_HTML
 
+    @staticmethod
+    def _snake_html() -> str:
+        return SNAKE_HTML
+
 
 llm_provider = LLMProvider()
 
@@ -765,6 +773,62 @@ function render(){document.getElementById('products').innerHTML=products.map(p=>
 function addToCart(id){const p=products.find(x=>x.id===id);if(p)cart.push(p);document.getElementById('badge').textContent=cart.length}
 function showCart(){const total=cart.reduce((s,p)=>s+p.price,0);alert('Cart: '+cart.length+' items\\nTotal: $'+total.toFixed(2))}
 render();
+</script>
+</body>
+</html>"""
+
+
+SNAKE_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Snake Game</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:#e2e8f0;user-select:none;-webkit-user-select:none;touch-action:none}
+.header{display:flex;align-items:center;justify-content:space-between;width:320px;margin-bottom:12px}
+.title{font-size:28px;font-weight:800;background:linear-gradient(135deg,#22c55e,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.score-box{background:#1a1a2e;border-radius:8px;padding:6px 14px;text-align:center;border:1px solid rgba(255,255,255,.06)}
+.score-label{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px}
+.score-value{font-size:18px;font-weight:700}
+canvas{border-radius:12px;background:#1a1a2e;border:1px solid rgba(255,255,255,.06);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.controls{display:flex;gap:10px;margin-top:16px}
+.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,#22c55e,#10b981);color:#fff}
+.btn-primary:hover{transform:translateY(-2px)}
+.btn-outline{background:transparent;color:#94a3b8;border:1px solid rgba(255,255,255,.1)}
+.btn-outline:hover{border-color:#22c55e;color:#22c55e}
+.msg{margin-top:12px;font-size:14px;font-weight:600;min-height:20px}
+.msg.over{color:#ef4444}.msg.go{color:#22c55e}
+.instructions{margin-top:12px;color:#6366f1;font-size:11px;text-align:center;line-height:1.6}
+@media(max-width:360px){canvas{width:280px!important;height:280px!important}.header{width:280px}}
+</style>
+</head>
+<body>
+<div class="header">
+<div class="title">Snake</div>
+<div class="score-box"><div class="score-label">Score</div><div class="score-value" id="score">0</div></div>
+</div>
+<canvas id="c" width="320" height="320"></canvas>
+<div class="controls">
+<button class="btn btn-primary" onclick="startGame()">Start</button>
+<button class="btn btn-outline" onclick="pauseGame()">Pause</button>
+</div>
+<div class="msg" id="msg"></div>
+<div class="instructions">Arrow keys / WASD / Swipe<br>Press Start to begin</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const GRID=20,CELL=canvas.width/GRID;
+let snake,dir,food,score,running,paused,gameOver,speed,loopId;
+function startGame(){snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];dir={x:1,y:0};score=0;running=true;paused=false;gameOver=false;speed=120;placeFood();document.getElementById('score').textContent=0;document.getElementById('msg').textContent='';document.getElementById('msg').className='msg';if(loopId)clearInterval(loopId);loopId=setInterval(tick,speed)}
+function pauseGame(){if(gameOver)return;paused=!paused;document.getElementById('msg').textContent=paused?'Paused':'';document.getElementById('msg').className='msg go'}
+function placeFood(){do{food={x:Math.floor(Math.random()*GRID),y:Math.floor(Math.random()*GRID)}}while(snake.some(s=>s.x===food.x&&s.y===food.y))}
+function tick(){if(paused||gameOver)return;const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};if(head.x<0||head.x>=GRID||head.y<0||head.y>=GRID||snake.some(s=>s.x===head.x&&s.y===head.y)){gameOver=true;running=false;clearInterval(loopId);document.getElementById('msg').textContent='Game Over! Score: '+score;document.getElementById('msg').className='msg over';draw();return}snake.unshift(head);if(head.x===food.x&&head.y===food.y){score++;document.getElementById('score').textContent=score;placeFood();if(speed>60){speed-=3;clearInterval(loopId);loopId=setInterval(tick,speed)}}else{snake.pop()}draw()}
+function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++){ctx.fillStyle=(x+y)%2===0?'#1a1a2e':'#1e1e35';ctx.fillRect(x*CELL,y*CELL,CELL,CELL)}ctx.fillStyle='#ef4444';ctx.shadowColor='#ef4444';ctx.shadowBlur=8;ctx.beginPath();ctx.arc(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL/2-2,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;snake.forEach((s,i)=>{const pct=1-i/snake.length;const g=Math.floor(180+75*pct);ctx.fillStyle=`rgb(34,${g},94)`;ctx.shadowColor=i===0?'#22c55e':'transparent';ctx.shadowBlur=i===0?8:0;const pad=i===0?1:2;ctx.fillRect(s.x*CELL+pad,s.y*CELL+pad,CELL-pad*2,CELL-pad*2);ctx.shadowBlur=0;if(i===0){ctx.fillStyle='#fff';ctx.fillRect(s.x*CELL+5,s.y*CELL+5,3,3);ctx.fillRect(s.x*CELL+CELL-8,s.y*CELL+5,3,3)}})}
+document.addEventListener('keydown',e=>{const map={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0},W:{x:0,y:-1},S:{x:0,y:1},A:{x:-1,y:0},D:{x:1,y:0}};const d=map[e.key];if(d&&running&&!paused){if(d.x!==-dir.x||d.y!==-dir.y){dir=d}e.preventDefault()}});
+let tx,ty;document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY});document.addEventListener('touchend',e=>{if(!tx||!running||paused)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.abs(dx)>Math.abs(dy)){if(dx>0&&dir.x!==(-1))dir={x:1,y:0};else if(dx<0&&dir.x!==1)dir={x:-1,y:0}}else{if(dy>0&&dir.y!==(-1))dir={x:0,y:1};else if(dy<0&&dir.y!==1)dir={x:0,y:-1}}tx=ty=null});
+draw();
 </script>
 </body>
 </html>"""

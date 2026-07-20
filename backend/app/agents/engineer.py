@@ -118,7 +118,11 @@ class EngineerAgent(BaseAgent):
             return LLMProvider._portfolio_html()
         if any(w in task_lower for w in ["calculator", "tool", "converter"]):
             return LLMProvider._calculator_html()
-        if any(w in task_lower for w in ["game", "2048", "1024", "snake", "tetris", "puzzle", "play", "\u6e38\u620f", "\u8d2a\u5403\u86c7"]):
+        if any(w in task_lower for w in ["snake", "\u8d2a\u5403\u86c7"]):
+            return LLMProvider._snake_html()
+        if any(w in task_lower for w in ["2048", "1024"]):
+            return LLMProvider._game_2048_html()
+        if any(w in task_lower for w in ["game", "tetris", "puzzle", "play", "\u6e38\u620f"]):
             return LLMProvider._game_2048_html()
         if any(w in task_lower for w in ["todo", "task", "list", "checklist"]):
             return LLMProvider._todo_html()
