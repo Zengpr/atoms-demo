@@ -21,7 +21,7 @@ async def get_or_create_conversation(db: AsyncSession, project_id: str, mode: st
         .order_by(Conversation.created_at.desc())
         .limit(1)
     )
-    conv = result.scalar_one_or_none()
+    conv = result.scalars().first()
     if conv:
         return conv
     conv = Conversation(project_id=project_id, mode=mode, title="New Conversation")
@@ -172,10 +172,12 @@ async def _get_latest_code(db: AsyncSession, project_id: str) -> Optional[str]:
 async def get_conversation_history(db: AsyncSession, project_id: str) -> list[Message]:
     result = await db.execute(
         select(Conversation).where(Conversation.project_id == project_id)
+        .order_by(Conversation.created_at.desc())
     )
-    conv = result.scalar_one_or_none()
-    if not conv:
+    convs = list(result.scalars().all())
+    if not convs:
         return []
+    conv = convs[0]
     result = await db.execute(
         select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at.asc())
     )
