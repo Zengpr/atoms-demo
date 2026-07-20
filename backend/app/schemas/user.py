@@ -6,8 +6,8 @@ from app.schemas.config import CAMEL_CONFIG
 
 class UserRegister(BaseModel):
     email: str
-    username: str
-    password: str
+    username: str = Field(min_length=2, max_length=30)
+    password: str = Field(min_length=6, max_length=100)
 
 
 class UserLogin(BaseModel):

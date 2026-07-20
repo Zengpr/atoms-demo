@@ -316,6 +316,55 @@ class Orchestrator:
             },
         }
 
+    async def run_review_mode(self, task: str, context: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
+        researcher = self.agents["researcher"]
+        engineer = self.agents["engineer"]
+        start = time.time()
+
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "message": f"{researcher.avatar_emoji} {researcher.name} is reviewing the code..."},
+        }
+
+        previous_code = context.get("previous_code", "")
+        review_task = f"Review this code and suggest improvements:\n\n{previous_code[:3000]}\n\nUser request: {task}" if previous_code else task
+        thought = await researcher.think(review_task, context)
+
+        async for ev in _stream_text(researcher.name, researcher.avatar_emoji, thought):
+            yield ev
+
+        await _mock_delay()
+
+        yield {
+            "event": "agent_action",
+            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "action": "Review complete. Applying improvements..."},
+        }
+
+        await _mock_delay()
+
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is applying review feedback..."},
+        }
+
+        eng_thought, code = await engineer.execute(task, {**context, "thought": thought, "is_iteration": True})
+        duration = int((time.time() - start) * 1000)
+
+        yield {
+            "event": "code_generated",
+            "data": {"agent": engineer.name, "code": code, "duration_ms": duration},
+        }
+
+        yield {
+            "event": "message_complete",
+            "data": {
+                "agent": researcher.name,
+                "message": "Review complete! I've analyzed the code and applied improvements. Check the preview or ask for further refinements.",
+                "duration_ms": duration,
+                "agents_used": [researcher.name, engineer.name],
+            },
+        }
+
     async def run(self, task: str, mode: str, context: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
         if mode == "engineer":
             async for event in self.run_engineer_mode(task, context):
@@ -323,9 +372,13 @@ class Orchestrator:
         elif mode == "race":
             async for event in self.run_race_mode(task, context):
                 yield event
-        elif mode == "research":
-            async for event in self.run_research_mode(task, context):
-                yield event
+        elif mode in ("research", "review"):
+            if mode == "review":
+                async for event in self.run_review_mode(task, context):
+                    yield event
+            else:
+                async for event in self.run_research_mode(task, context):
+                    yield event
         else:
             async for event in self.run_team_mode(task, context):
                 yield event

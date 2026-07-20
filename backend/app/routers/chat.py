@@ -31,7 +31,7 @@ async def send_message(
 ):
     project = await _get_user_project(project_id, user, db)
     mode = project.mode
-    if data.mode and data.mode in ("engineer", "team", "race", "research"):
+    if data.mode and data.mode in ("engineer", "team", "race", "research", "review", "iterate", "single"):
         mode = data.mode
         project.mode = mode
         await db.commit()
