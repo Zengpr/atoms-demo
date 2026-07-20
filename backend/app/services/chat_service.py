@@ -141,7 +141,7 @@ async def process_chat(
                 from app.models.project import Project
                 from sqlalchemy import select as sa_select
                 result = await db.execute(sa_select(Project).where(Project.id == project_id))
-                proj = result.scalar_one_or_none()
+                proj = result.scalars().first()
                 if proj:
                     proj.status = "completed"
                     await db.flush()
@@ -163,7 +163,7 @@ async def _get_latest_code(db: AsyncSession, project_id: str) -> Optional[str]:
         .order_by(CodeVersion.created_at.desc())
         .limit(1)
     )
-    cv = result.scalar_one_or_none()
+    cv = result.scalars().first()
     if cv:
         return cv.code_full or cv.code_html or ""
     return None

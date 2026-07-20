@@ -36,10 +36,10 @@ def decode_access_token(token: str) -> Optional[dict]:
 
 async def register_user(db: AsyncSession, user_data: UserRegister) -> User:
     result = await db.execute(select(User).where(User.email == user_data.email))
-    if result.scalar_one_or_none():
+    if result.scalars().first():
         raise ValueError("Email already registered")
     result = await db.execute(select(User).where(User.username == user_data.username))
-    if result.scalar_one_or_none():
+    if result.scalars().first():
         raise ValueError("Username already taken")
     user = User(
         email=user_data.email,
@@ -53,7 +53,7 @@ async def register_user(db: AsyncSession, user_data: UserRegister) -> User:
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
     result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
+    user = result.scalars().first()
     if not user or not verify_password(password, user.password_hash):
         return None
     return user
@@ -61,4 +61,4 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Opti
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> Optional[User]:
     result = await db.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+    return result.scalars().first()

@@ -27,7 +27,7 @@ async def get_user_projects(db: AsyncSession, user_id: str) -> list[Project]:
 
 async def get_project(db: AsyncSession, project_id: str) -> Optional[Project]:
     result = await db.execute(select(Project).where(Project.id == project_id))
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def update_project(db: AsyncSession, project: Project, data: ProjectUpdate) -> Project:
@@ -55,8 +55,9 @@ async def save_code_version(
         select(CodeVersion)
         .where(CodeVersion.project_id == project_id)
         .order_by(CodeVersion.version.desc())
+        .limit(1)
     )
-    latest = result.scalar_one_or_none()
+    latest = result.scalars().first()
     next_version = (latest.version + 1) if latest else 1
 
     version = CodeVersion(
@@ -88,4 +89,4 @@ async def get_latest_version(db: AsyncSession, project_id: str) -> Optional[Code
         .order_by(CodeVersion.version.desc())
         .limit(1)
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
