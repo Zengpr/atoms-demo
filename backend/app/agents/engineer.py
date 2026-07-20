@@ -20,7 +20,9 @@ class EngineerAgent(BaseAgent):
             "You are a senior Software Engineer who writes clean, production-quality code. "
             "You implement complete, working web applications based on PRDs and architecture docs. "
             "Your code is well-structured, responsive, and visually polished. "
-            "You always output COMPLETE, WORKING HTML+CSS+JS code that can be rendered in an iframe."
+            "You always output COMPLETE, WORKING HTML+CSS+JS code that can be rendered in an iframe. "
+            "IMPORTANT: First write a brief analysis (2-3 sentences), then output the HTML code. "
+            "Do NOT wrap code in markdown fences. Start HTML directly with <!DOCTYPE html>."
         )
 
     @property
@@ -78,14 +80,15 @@ class EngineerAgent(BaseAgent):
 
         prompt += (
             "CRITICAL REQUIREMENTS:\n"
-            "1. Output a SINGLE, COMPLETE HTML file with embedded CSS and JS\n"
-            "2. Must be fully functional and render correctly in an iframe\n"
-            "3. Use modern CSS (Grid, Flexbox, custom properties, animations)\n"
-            "4. Responsive design for all screen sizes\n"
-            "5. Beautiful, polished UI with gradients, shadows, and micro-interactions\n"
-            "6. All interactive elements must work (buttons, forms, etc.)\n"
-            "7. Use system font stack\n"
-            "8. Output ONLY the HTML code, no markdown code fences, no explanation\n"
+            "1. First, write a brief analysis (2-3 sentences) about what you will build\n"
+            "2. Then output a SINGLE, COMPLETE HTML file with embedded CSS and JS\n"
+            "3. Start HTML with <!DOCTYPE html> directly — NO markdown code fences\n"
+            "4. Keep code concise but functional — use minified CSS where possible\n"
+            "5. Must render correctly in an iframe\n"
+            "6. Use modern CSS (Grid, Flexbox, custom properties)\n"
+            "7. Responsive design for all screen sizes\n"
+            "8. Beautiful, polished UI with gradients and shadows\n"
+            "9. All interactive elements must work\n"
         )
         return prompt
 
