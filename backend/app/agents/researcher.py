@@ -26,8 +26,8 @@ class ResearcherAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "🔬"
 
-    async def think(self, task: str, context: dict[str, Any]) -> str:
-        prompt = (
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
+        return (
             f"As Iris the Researcher, analyze this topic:\n\n"
             f"Topic: {task}\n\n"
             f"Provide research findings with:\n"
@@ -36,6 +36,12 @@ class ResearcherAgent(BaseAgent):
             f"- recommendations: Summary recommendations string\n\n"
             f"Output as JSON."
         )
+
+    async def think(self, task: str, context: dict[str, Any]) -> str:
+        prompt = self._build_think_prompt(task, context)
+        if llm_provider.is_mock:
+            from app.utils.llm import MOCK_RESPONSES
+            return MOCK_RESPONSES.get("researcher", "")
         result = await llm_provider.generate(self.get_system_prompt(), prompt)
         try:
             json.loads(result)

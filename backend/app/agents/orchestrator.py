@@ -1,4 +1,5 @@
 import json
+import re
 import asyncio
 import time
 from typing import Any, AsyncIterator
@@ -11,7 +12,7 @@ from app.agents.researcher import ResearcherAgent
 from app.utils.llm import llm_provider
 
 
-MOCK_DELAY = 0.8
+MOCK_DELAY = 0.5
 
 
 async def _mock_delay():
@@ -19,16 +20,32 @@ async def _mock_delay():
         await asyncio.sleep(MOCK_DELAY)
 
 
-async def _stream_text(agent_name: str, emoji: str, text: str, chunk_size: int = 8) -> AsyncIterator[dict[str, Any]]:
-    words = text.split(" ")
-    for i in range(0, len(words), chunk_size):
-        chunk = " ".join(words[i:i + chunk_size])
+async def _stream_llm_as_events(
+    agent: BaseAgent,
+    stream_method: str,
+    task: str,
+    context: dict[str, Any],
+) -> AsyncIterator[dict[str, Any]]:
+    method = getattr(agent, stream_method)
+    full_text = ""
+    async for chunk in method(task, context):
+        full_text += chunk
         yield {
             "event": "agent_stream",
-            "data": {"agent": agent_name, "emoji": emoji, "chunk": chunk + " "},
+            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "chunk": chunk},
         }
-        if llm_provider.is_mock:
-            await asyncio.sleep(0.12)
+    yield {
+        "event": "agent_stream_done",
+        "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "full_text": full_text},
+    }
+
+
+async def _collect_stream(stream: AsyncIterator[dict[str, Any]]) -> str:
+    full = ""
+    async for ev in stream:
+        if ev["event"] == "agent_stream_done":
+            full = ev["data"]["full_text"]
+    return full
 
 
 class Orchestrator:
@@ -53,10 +70,13 @@ class Orchestrator:
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is analyzing your request..."},
         }
 
-        thought = await engineer.think(task, context)
-
-        async for ev in _stream_text(engineer.name, engineer.avatar_emoji, thought):
-            yield ev
+        think_gen = _stream_llm_as_events(engineer, "think_stream", task, context)
+        thought = ""
+        async for ev in think_gen:
+            if ev["event"] == "agent_stream":
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                thought = ev["data"]["full_text"]
 
         await _mock_delay()
 
@@ -65,7 +85,22 @@ class Orchestrator:
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Implementing your application based on the analysis..."},
         }
 
-        code = await engineer.act(task, {**context, "thought": thought})
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is writing code..."},
+        }
+
+        act_context = {**context, "thought": thought}
+        code = ""
+        act_gen = _stream_llm_as_events(engineer, "act_stream", task, act_context)
+        async for ev in act_gen:
+            if ev["event"] == "agent_stream":
+                code += ev["data"]["chunk"]
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                code = ev["data"]["full_text"]
+
+        code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
 
         yield {
@@ -92,24 +127,25 @@ class Orchestrator:
         enriched_context["mode"] = "team"
         total_start = time.time()
 
-        # Step 1: Leader plans
         yield {
             "event": "agent_thinking",
             "data": {"agent": leader.name, "emoji": leader.avatar_emoji, "message": f"{leader.avatar_emoji} {leader.name} is coordinating the team..."},
         }
 
-        leader_thought, plan_str = await leader.execute(task, enriched_context)
-        plan_duration = int((time.time() - total_start) * 1000)
+        leader_text = ""
+        async for ev in _stream_llm_as_events(leader, "think_stream", task, enriched_context):
+            if ev["event"] == "agent_stream":
+                leader_text = ev["data"]["chunk"] if not leader_text else leader_text
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                leader_text = ev["data"]["full_text"]
 
         try:
-            plan_data = json.loads(plan_str)
+            plan_data = json.loads(leader_text)
         except json.JSONDecodeError:
-            plan_data = {"plan": leader_thought, "steps": [], "summary": "Executing full team pipeline"}
+            plan_data = {"plan": leader_text[:200], "steps": [], "summary": "Executing full team pipeline"}
 
-        plan_summary = plan_data.get("plan", leader_thought[:200])
-        async for ev in _stream_text(leader.name, leader.avatar_emoji, f"Plan: {plan_summary}"):
-            yield ev
-
+        plan_summary = plan_data.get("plan", leader_text[:200])
         yield {
             "event": "agent_action",
             "data": {
@@ -117,37 +153,32 @@ class Orchestrator:
                 "emoji": leader.avatar_emoji,
                 "action": f"Team plan: {plan_summary}",
                 "plan": plan_data,
-                "duration_ms": plan_duration,
             },
         }
 
         await _mock_delay()
 
-        # Step 2: PM creates PRD
-        prd_start = time.time()
         yield {
             "event": "agent_thinking",
             "data": {"agent": pm.name, "emoji": pm.avatar_emoji, "message": f"{pm.avatar_emoji} {pm.name} is analyzing requirements..."},
         }
 
-        pm_thought, prd_str = await pm.execute(task, enriched_context)
-        prd_duration = int((time.time() - prd_start) * 1000)
+        prd_text = ""
+        async for ev in _stream_llm_as_events(pm, "think_stream", task, enriched_context):
+            if ev["event"] == "agent_stream":
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                prd_text = ev["data"]["full_text"]
 
         try:
-            prd_data = json.loads(prd_str)
+            prd_data = json.loads(prd_text)
         except json.JSONDecodeError:
-            prd_data = {"prd": {"title": "Product Requirements", "overview": pm_thought[:200]}}
+            prd_data = {"prd": {"title": "Product Requirements", "overview": prd_text[:200]}}
 
-        enriched_context["prd"] = prd_str
-
-        prd_overview = prd_data.get("prd", {}).get("overview", pm_thought[:200])
+        enriched_context["prd"] = prd_text
+        prd_overview = prd_data.get("prd", {}).get("overview", prd_text[:200])
         features = prd_data.get("prd", {}).get("features", [])
         feature_names = ", ".join(f.get("name", "") for f in features[:3]) if features else ""
-        prd_summary = f"PRD: {prd_overview}"
-        if feature_names:
-            prd_summary += f" Key features: {feature_names}."
-        async for ev in _stream_text(pm.name, pm.avatar_emoji, prd_summary):
-            yield ev
 
         yield {
             "event": "agent_action",
@@ -156,71 +187,63 @@ class Orchestrator:
                 "emoji": pm.avatar_emoji,
                 "action": f"PRD created — {feature_names}" if feature_names else "PRD created",
                 "prd": prd_data,
-                "duration_ms": prd_duration,
             },
         }
 
         await _mock_delay()
 
-        # Step 3: Architect designs
-        arch_start = time.time()
         yield {
             "event": "agent_thinking",
             "data": {"agent": architect.name, "emoji": architect.avatar_emoji, "message": f"{architect.avatar_emoji} {architect.name} is designing the architecture..."},
         }
 
-        arch_thought, arch_str = await architect.execute(task, enriched_context)
-        arch_duration = int((time.time() - arch_start) * 1000)
+        arch_text = ""
+        async for ev in _stream_llm_as_events(architect, "think_stream", task, enriched_context):
+            if ev["event"] == "agent_stream":
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                arch_text = ev["data"]["full_text"]
 
         try:
-            arch_data = json.loads(arch_str)
+            arch_data = json.loads(arch_text)
         except json.JSONDecodeError:
             arch_data = {"architecture": {"tech_stack": {"frontend": "HTML5 + CSS3 + JS"}, "component_structure": []}}
 
-        enriched_context["architecture"] = arch_str
-
-        tech = arch_data.get("architecture", {}).get("tech_stack", {})
-        components = arch_data.get("architecture", {}).get("component_structure", [])
-        tech_summary = ", ".join(str(v) for v in tech.values()) if tech else "HTML5 + CSS3 + JS"
-        comp_names = ", ".join(c.get("name", "") for c in components[:4]) if components else ""
-        arch_summary = f"Architecture: Tech stack — {tech_summary}."
-        if comp_names:
-            arch_summary += f" Components — {comp_names}."
-        async for ev in _stream_text(architect.name, architect.avatar_emoji, arch_summary):
-            yield ev
+        enriched_context["architecture"] = arch_text
 
         yield {
             "event": "agent_action",
             "data": {
                 "agent": architect.name,
                 "emoji": architect.avatar_emoji,
-                "action": f"Architecture designed — {comp_names}" if comp_names else "Architecture designed",
+                "action": "Architecture designed",
                 "architecture": arch_data,
-                "duration_ms": arch_duration,
             },
         }
 
         await _mock_delay()
 
-        # Step 4: Engineer implements
-        eng_start = time.time()
         yield {
             "event": "agent_thinking",
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is building your application..."},
         }
 
-        async for ev in _stream_text(engineer.name, engineer.avatar_emoji, "Writing HTML structure, applying CSS styles, implementing JavaScript interactions..."):
-            yield ev
+        code = ""
+        act_gen = _stream_llm_as_events(engineer, "act_stream", task, enriched_context)
+        async for ev in act_gen:
+            if ev["event"] == "agent_stream":
+                code += ev["data"]["chunk"]
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                code = ev["data"]["full_text"]
 
-        eng_thought, code = await engineer.execute(task, enriched_context)
-        eng_duration = int((time.time() - eng_start) * 1000)
+        code = self._extract_html(code)
+        total_duration = int((time.time() - total_start) * 1000)
 
         yield {
             "event": "code_generated",
-            "data": {"agent": engineer.name, "code": code, "duration_ms": eng_duration},
+            "data": {"agent": engineer.name, "code": code, "duration_ms": total_duration},
         }
-
-        total_duration = int((time.time() - total_start) * 1000)
 
         yield {
             "event": "message_complete",
@@ -240,41 +263,54 @@ class Orchestrator:
             "data": {"agent": "Race Mode", "emoji": "⚡", "message": "⚡ Race Mode: Launching two parallel implementation strategies..."},
         }
 
-        async for ev in _stream_text("Race Mode", "⚡", "Strategy A: Standard approach. Strategy B: Creative alternative. Both running in parallel..."):
-            yield ev
-
-        import asyncio
         start = time.time()
 
-        async def run_variant(variant_label: str, prompt_prefix: str) -> tuple[str, str]:
-            modified_task = f"{prompt_prefix}{task}"
-            thought = await engineer.think(modified_task, context)
-            code = await engineer.act(modified_task, {**context, "thought": thought})
-            return variant_label, code
+        code_a = ""
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy A: {engineer.avatar_emoji} {engineer.name} is building..."},
+        }
+        act_gen_a = _stream_llm_as_events(engineer, "act_stream", task, context)
+        async for ev in act_gen_a:
+            if ev["event"] == "agent_stream":
+                code_a += ev["data"]["chunk"]
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                code_a = ev["data"]["full_text"]
 
-        results = await asyncio.gather(
-            run_variant("A", ""),
-            run_variant("B", "Alternative creative approach: "),
-        )
+        code_a = self._extract_html(code_a)
 
+        context_b = {**context}
+        code_b = ""
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy B: {engineer.avatar_emoji} {engineer.name} is building alternative..."},
+        }
+        act_gen_b = _stream_llm_as_events(engineer, "act_stream", f"Alternative creative approach: {task}", context_b)
+        async for ev in act_gen_b:
+            if ev["event"] == "agent_stream":
+                code_b += ev["data"]["chunk"]
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                code_b = ev["data"]["full_text"]
+
+        code_b = self._extract_html(code_b)
         duration = int((time.time() - start) * 1000)
 
-        for variant_label, code in results:
-            yield {
-                "event": "code_generated",
-                "data": {
-                    "agent": engineer.name,
-                    "code": code,
-                    "variant": variant_label,
-                    "duration_ms": duration,
-                },
-            }
+        yield {
+            "event": "code_generated",
+            "data": {"agent": engineer.name, "code": code_a, "variant": "A", "duration_ms": duration},
+        }
+        yield {
+            "event": "code_generated",
+            "data": {"agent": engineer.name, "code": code_b, "variant": "B", "duration_ms": duration},
+        }
 
         yield {
             "event": "message_complete",
             "data": {
                 "agent": "Race Mode",
-                "message": f"Race complete! Two variants generated in {duration}ms. Preview both and tell me which direction you prefer — I can refine either one.",
+                "message": f"Race complete! Two variants generated in {duration}ms. Preview both and tell me which direction you prefer.",
                 "duration_ms": duration,
                 "variants": ["A", "B"],
             },
@@ -289,23 +325,14 @@ class Orchestrator:
             "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "message": f"{researcher.avatar_emoji} {researcher.name} is conducting deep research..."},
         }
 
-        thought = await researcher.think(task, context)
+        research_text = ""
+        async for ev in _stream_llm_as_events(researcher, "think_stream", task, context):
+            if ev["event"] == "agent_stream":
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                research_text = ev["data"]["full_text"]
 
-        async for ev in _stream_text(researcher.name, researcher.avatar_emoji, thought):
-            yield ev
-
-        await _mock_delay()
-
-        yield {
-            "event": "agent_action",
-            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "action": "Compiling research findings and recommendations..."},
-        }
-
-        findings = await researcher.act(task, {**context, "thought": thought})
         duration = int((time.time() - start) * 1000)
-
-        async for ev in _stream_text(researcher.name, researcher.avatar_emoji, findings if isinstance(findings, str) else str(findings)):
-            yield ev
 
         yield {
             "event": "message_complete",
@@ -321,19 +348,20 @@ class Orchestrator:
         engineer = self.agents["engineer"]
         start = time.time()
 
+        previous_code = context.get("previous_code", "")
+        review_task = f"Review this code and suggest improvements:\n\n{previous_code[:3000]}\n\nUser request: {task}" if previous_code else task
+
         yield {
             "event": "agent_thinking",
             "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "message": f"{researcher.avatar_emoji} {researcher.name} is reviewing the code..."},
         }
 
-        previous_code = context.get("previous_code", "")
-        review_task = f"Review this code and suggest improvements:\n\n{previous_code[:3000]}\n\nUser request: {task}" if previous_code else task
-        thought = await researcher.think(review_task, context)
-
-        async for ev in _stream_text(researcher.name, researcher.avatar_emoji, thought):
-            yield ev
-
-        await _mock_delay()
+        thought = ""
+        async for ev in _stream_llm_as_events(researcher, "think_stream", review_task, context):
+            if ev["event"] == "agent_stream":
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                thought = ev["data"]["full_text"]
 
         yield {
             "event": "agent_action",
@@ -347,7 +375,17 @@ class Orchestrator:
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is applying review feedback..."},
         }
 
-        eng_thought, code = await engineer.execute(task, {**context, "thought": thought, "is_iteration": True})
+        act_context = {**context, "thought": thought, "is_iteration": True}
+        code = ""
+        act_gen = _stream_llm_as_events(engineer, "act_stream", task, act_context)
+        async for ev in act_gen:
+            if ev["event"] == "agent_stream":
+                code += ev["data"]["chunk"]
+                yield ev
+            elif ev["event"] == "agent_stream_done":
+                code = ev["data"]["full_text"]
+
+        code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
 
         yield {
@@ -382,3 +420,22 @@ class Orchestrator:
         else:
             async for event in self.run_team_mode(task, context):
                 yield event
+
+    @staticmethod
+    def _extract_html(text: str) -> str:
+        fence_match = re.search(r"```html\s*\n(.*?)```", text, re.DOTALL)
+        if fence_match:
+            return fence_match.group(1).strip()
+        fence_match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
+        if fence_match:
+            content = fence_match.group(1).strip()
+            if content.lower().startswith("<!doctype") or content.lower().startswith("<html"):
+                return content
+        if text.strip().lower().startswith("<!doctype") or text.strip().lower().startswith("<html"):
+            return text.strip()
+        html_start = text.find("<!DOCTYPE")
+        if html_start == -1:
+            html_start = text.find("<html")
+        if html_start != -1:
+            return text[html_start:].strip()
+        return text.strip()

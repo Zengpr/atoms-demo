@@ -26,8 +26,8 @@ class LeaderAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "👨‍💼"
 
-    async def think(self, task: str, context: dict[str, Any]) -> str:
-        prompt = (
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
+        return (
             f"As Mike the Team Leader, analyze this request and create an execution plan:\n\n"
             f"User Request: {task}\n\n"
             f"Project Mode: {context.get('mode', 'team')}\n\n"
@@ -40,6 +40,19 @@ class LeaderAgent(BaseAgent):
             f"Output a JSON plan with 'plan' (summary), 'steps' (array of {{agent, task}}), "
             f"and 'summary' (one-liner)."
         )
+
+    async def think(self, task: str, context: dict[str, Any]) -> str:
+        prompt = self._build_think_prompt(task, context)
+        if llm_provider.is_mock:
+            return json.dumps({
+                "plan": "I'll coordinate the team to build this application step by step.",
+                "steps": [
+                    {"agent": "pm", "task": f"Analyze requirements for: {task}"},
+                    {"agent": "architect", "task": f"Design architecture for: {task}"},
+                    {"agent": "engineer", "task": f"Implement: {task}"}
+                ],
+                "summary": "Full team pipeline: PM → Architect → Engineer"
+            })
         result = await llm_provider.generate(self.get_system_prompt(), prompt)
         try:
             json.loads(result)

@@ -26,8 +26,8 @@ class PMAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "👩‍💻"
 
-    async def think(self, task: str, context: dict[str, Any]) -> str:
-        prompt = (
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
+        return (
             f"As Emma the Product Manager, analyze this request and create a PRD:\n\n"
             f"Request: {task}\n\n"
             f"Create a Product Requirements Document with:\n"
@@ -38,6 +38,11 @@ class PMAgent(BaseAgent):
             f"- acceptance_criteria: Array of criteria strings\n\n"
             f"Output as JSON."
         )
+
+    async def think(self, task: str, context: dict[str, Any]) -> str:
+        prompt = self._build_think_prompt(task, context)
+        if llm_provider.is_mock:
+            return MOCK_RESPONSES.get("pm", "")
         result = await llm_provider.generate(self.get_system_prompt(), prompt)
         try:
             json.loads(result)
@@ -52,3 +57,6 @@ class PMAgent(BaseAgent):
             return json.dumps(prd)
         except json.JSONDecodeError:
             return thought
+
+
+from app.utils.llm import MOCK_RESPONSES

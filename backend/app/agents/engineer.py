@@ -27,10 +27,9 @@ class EngineerAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "💻"
 
-    async def think(self, task: str, context: dict[str, Any]) -> str:
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         prd = context.get("prd", "")
         arch = context.get("architecture", "")
-        prev_code = context.get("previous_code", "")
         is_iteration = context.get("is_iteration", False)
         history = context.get("conversation_history", [])
 
@@ -44,15 +43,9 @@ class EngineerAgent(BaseAgent):
         if arch:
             prompt += f"Architecture: {arch[:500]}\n\n"
         prompt += "Describe your implementation plan briefly (2-3 sentences)."
+        return prompt
 
-        if llm_provider.is_mock:
-            if is_iteration:
-                return f"I'll modify the existing application based on the user's feedback. The change involves: {task[:100]}. I'll update the relevant sections while preserving the working parts."
-            return f"I'll build this from scratch. The plan: create a modern, responsive single-page application with clean structure, polished styling, and working interactions."
-
-        return await llm_provider.generate(self.get_system_prompt(), prompt)
-
-    async def act(self, task: str, context: dict[str, Any]) -> str:
+    def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
         prd = context.get("prd", "")
         arch = context.get("architecture", "")
         prev_code = context.get("previous_code", "")
@@ -89,10 +82,21 @@ class EngineerAgent(BaseAgent):
             "7. Use system font stack\n"
             "8. Output ONLY the HTML code, no markdown code fences, no explanation\n"
         )
+        return prompt
 
+    async def think(self, task: str, context: dict[str, Any]) -> str:
+        prompt = self._build_think_prompt(task, context)
         if llm_provider.is_mock:
-            return self._mock_iterate(task, prev_code, is_iteration)
+            is_iteration = context.get("is_iteration", False)
+            if is_iteration:
+                return f"I'll modify the existing application based on the user's feedback. The change involves: {task[:100]}. I'll update the relevant sections while preserving the working parts."
+            return f"I'll build this from scratch. The plan: create a modern, responsive single-page application with clean structure, polished styling, and working interactions."
+        return await llm_provider.generate(self.get_system_prompt(), prompt)
 
+    async def act(self, task: str, context: dict[str, Any]) -> str:
+        prompt = self._build_act_prompt(task, context)
+        if llm_provider.is_mock:
+            return self._mock_iterate(task, context.get("previous_code", ""), context.get("is_iteration", False))
         result = await llm_provider.generate(self.get_system_prompt(), prompt, temperature=0.4)
         code = self._extract_html(result)
         return code
@@ -191,7 +195,8 @@ class EngineerAgent(BaseAgent):
             return code.replace("</body>", form_html + "</body>")
         return code + form_html
 
-    def _extract_html(self, text: str) -> str:
+    @staticmethod
+    def _extract_html(text: str) -> str:
         fence_match = re.search(r"```html\s*\n(.*?)```", text, re.DOTALL)
         if fence_match:
             return fence_match.group(1).strip()

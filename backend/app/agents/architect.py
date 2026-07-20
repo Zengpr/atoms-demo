@@ -26,7 +26,7 @@ class ArchitectAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "🏗️"
 
-    async def think(self, task: str, context: dict[str, Any]) -> str:
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         prd = context.get("prd", "")
         prompt = (
             f"As Bob the Architect, design the architecture for this project:\n\n"
@@ -39,6 +39,13 @@ class ArchitectAgent(BaseAgent):
             f"Since this generates web apps rendered in iframes, use HTML5 + CSS3 + vanilla JS.\n"
             f"Output as JSON."
         )
+        return prompt
+
+    async def think(self, task: str, context: dict[str, Any]) -> str:
+        prompt = self._build_think_prompt(task, context)
+        if llm_provider.is_mock:
+            from app.utils.llm import MOCK_RESPONSES
+            return MOCK_RESPONSES.get("architect", "")
         result = await llm_provider.generate(self.get_system_prompt(), prompt)
         try:
             json.loads(result)
