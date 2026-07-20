@@ -184,38 +184,89 @@ class Orchestrator:
 
         yield {
             "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is analyzing your request..."},
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is working on your request..."},
         }
 
-        think_gen = _stream_llm_as_events(engineer, "think_stream", task, context, waiting_msg="Connecting to AI model...")
-        thought = ""
-        async for ev in think_gen:
-            if ev["event"] == "agent_stream":
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                thought = ev["data"]["full_text"]
+        full_text = ""
+        code_started = False
+        gen = engineer.act_stream(task, context)
+        hb = _heartbeat(engineer.name, engineer.avatar_emoji, "Connecting to AI model...")
+        act_task = asyncio.create_task(gen.__anext__())
+        hb_task = asyncio.create_task(hb.__anext__())
+        pending = {act_task, hb_task}
+        first_token = True
 
-        await _mock_delay()
+        try:
+            while pending:
+                done, pending_new = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                pending = pending_new
+                for t in done:
+                    if t is act_task:
+                        try:
+                            chunk = t.result()
+                            if first_token:
+                                first_token = False
+                                hb_task.cancel()
+                                try:
+                                    await hb_task
+                                except (asyncio.CancelledError, StopAsyncIteration):
+                                    pass
+                            full_text += chunk
 
-        yield {
-            "event": "agent_action",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Implementing your application based on the analysis..."},
-        }
+                            if not code_started:
+                                lower = full_text.lower()
+                                html_idx = -1
+                                for marker in ["<!doctype", "<html"]:
+                                    idx = lower.find(marker)
+                                    if idx != -1 and (html_idx == -1 or idx < html_idx):
+                                        html_idx = idx
+                                if html_idx != -1:
+                                    code_started = True
+                                    text_part = full_text[:html_idx].strip()
+                                    if text_part:
+                                        text_part = re.sub(r'```.*?$', '', text_part, flags=re.DOTALL).strip()
+                                    if text_part:
+                                        yield {
+                                            "event": "agent_stream",
+                                            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": text_part},
+                                        }
+                                    yield {
+                                        "event": "agent_action",
+                                        "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Writing code..."},
+                                    }
+                            act_task = asyncio.create_task(gen.__anext__())
+                            pending.add(act_task)
+                        except StopAsyncIteration:
+                            pass
+                        except Exception:
+                            pass
+                    elif t is hb_task:
+                        try:
+                            ev = t.result()
+                            if not code_started:
+                                yield ev
+                            hb_task = asyncio.create_task(hb.__anext__())
+                            pending.add(hb_task)
+                        except (StopAsyncIteration, asyncio.CancelledError):
+                            pass
+        finally:
+            act_task.cancel()
+            hb_task.cancel()
+            for t in {act_task, hb_task}:
+                try:
+                    await t
+                except (asyncio.CancelledError, StopAsyncIteration, Exception):
+                    pass
 
-        yield {
-            "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is writing code..."},
-        }
+        code = self._extract_html(full_text)
+        if not code_started:
+            text_only = re.sub(r'```.*?```', '', full_text, flags=re.DOTALL).strip()
+            if text_only:
+                yield {
+                    "event": "agent_stream",
+                    "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": text_only},
+                }
 
-        act_context = {**context, "thought": thought}
-        code = ""
-        async for ev in _collect_code_with_heartbeat(engineer, task, act_context, f"{engineer.avatar_emoji} {engineer.name} is generating code..."):
-            if ev["event"] == "code_collected":
-                code = ev["data"]["code"]
-            else:
-                yield ev
-
-        code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
 
         yield {
@@ -362,7 +413,7 @@ class Orchestrator:
             "event": "message_complete",
             "data": {
                 "agent": leader.name,
-                "message": f"Team complete! {pm.name} wrote the PRD, {architect.name} designed the architecture, and {engineer.name} built the app. Preview it on the right — or tell me what to adjust and I'll coordinate the team to iterate.",
+                "message": f"Team complete! {pm.name} wrote the PRD, {architect.name} designed the architecture, and {engineer.name} built the app. Preview it on the right — or tell me what to adjust.",
                 "duration_ms": total_duration,
                 "agents_used": [leader.name, pm.name, architect.name, engineer.name],
             },
