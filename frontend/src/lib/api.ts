@@ -1,7 +1,18 @@
 import type { User, Project, Message, CreateProjectData, ChatMode } from "./types";
 
+const FALLBACK_API = "https://backend-production-e62a.up.railway.app";
 function cleanUrl(url: string): string {
-  return url.replace(/\uFEFF/g, "").replace(/\\uFEFF/g, "").replace(/\u200B/g, "").replace(/\\u200B/g, "").trim();
+  let cleaned = url;
+  for (const ch of ["\uFEFF", "\u200B", "\\uFEFF", "\\u200B"]) {
+    while (cleaned.includes(ch)) {
+      cleaned = cleaned.replace(ch, "");
+    }
+  }
+  cleaned = cleaned.trim();
+  if (!cleaned || !cleaned.startsWith("http")) {
+    return FALLBACK_API;
+  }
+  return cleaned;
 }
 const API_BASE = cleanUrl(process.env.NEXT_PUBLIC_API_URL || "");
 const SSE_BASE = cleanUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
