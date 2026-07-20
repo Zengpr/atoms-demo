@@ -552,7 +552,10 @@ function percent(){current=String(parseFloat(current)/100);updateDisplay()}
         return ECOMMERCE_HTML
 
 
-llm_provider = LLMProvider() = """<!DOCTYPE html>
+llm_provider = LLMProvider()
+
+
+GAME_2048_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
