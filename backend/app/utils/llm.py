@@ -276,6 +276,14 @@ class LLMProvider:
             return _generate_landing_html()
         if any(w in prompt for w in ["calculator", "tool", "converter"]):
             return self._calculator_html()
+        if any(w in prompt for w in ["game", "2048", "1024", "snake", "tetris", "puzzle", "play"]):
+            return self._game_2048_html()
+        if any(w in prompt for w in ["todo", "task", "list", "checklist"]):
+            return self._todo_html()
+        if any(w in prompt for w in ["counter", "count", "increment"]):
+            return self._counter_html()
+        if any(w in prompt for w in ["ecommerce", "shop", "store", "product", "cart"]):
+            return self._ecommerce_html()
         return _generate_landing_html()
 
     @staticmethod
@@ -527,4 +535,233 @@ function percent(){current=String(parseFloat(current)/100);updateDisplay()}
 </html>"""
 
 
-llm_provider = LLMProvider()
+    @staticmethod
+    def _game_2048_html() -> str:
+        return GAME_2048_HTML
+
+    @staticmethod
+    def _todo_html() -> str:
+        return TODO_HTML
+
+    @staticmethod
+    def _counter_html() -> str:
+        return COUNTER_HTML
+
+    @staticmethod
+    def _ecommerce_html() -> str:
+        return ECOMMERCE_HTML
+
+
+llm_provider = LLMProvider() = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>1024 Game</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:#e2e8f0;user-select:none;-webkit-user-select:none;touch-action:none}
+.header{display:flex;align-items:center;justify-content:space-between;width:360px;margin-bottom:16px}
+.title{font-size:36px;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.scores{display:flex;gap:12px}
+.score-box{background:#1a1a2e;border-radius:8px;padding:8px 16px;text-align:center;border:1px solid rgba(255,255,255,.06)}
+.score-label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px}
+.score-value{font-size:20px;font-weight:700}
+.board{background:#1a1a2e;border-radius:12px;padding:12px;position:relative;border:1px solid rgba(255,255,255,.06);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cell{width:78px;height:78px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:28px;transition:all .12s;background:#25253d}
+.cell[data-value="2"]{background:#3b3b5c;color:#c4b5fd;font-size:28px}
+.cell[data-value="4"]{background:#4c3d7a;color:#c4b5fd;font-size:28px}
+.cell[data-value="8"]{background:#6d28d9;color:#fff;font-size:28px}
+.cell[data-value="16"]{background:#7c3aed;color:#fff;font-size:26px}
+.cell[data-value="32"]{background:#8b5cf6;color:#fff;font-size:26px}
+.cell[data-value="64"]{background:#a855f7;color:#fff;font-size:26px}
+.cell[data-value="128"]{background:#c084fc;color:#fff;font-size:22px}
+.cell[data-value="256"]{background:#d946ef;color:#fff;font-size:22px}
+.cell[data-value="512"]{background:#e879f9;color:#fff;font-size:22px}
+.cell[data-value="1024"]{background:linear-gradient(135deg,#6366f1,#06b6d4);color:#fff;font-size:18px;text-shadow:0 0 10px rgba(99,102,241,.5)}
+.cell[data-value="2048"]{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:18px;text-shadow:0 0 10px rgba(245,158,11,.5)}
+.cell.new{animation:popIn .2s ease}
+.cell.merged{animation:popMerge .2s ease}
+@keyframes popIn{0%{transform:scale(0)}100%{transform:scale(1)}}
+@keyframes popMerge{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+.controls{display:flex;gap:12px;margin-top:16px}
+.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(99,102,241,.4)}
+.btn-outline{background:transparent;color:#94a3b8;border:1px solid rgba(255,255,255,.1)}
+.btn-outline:hover{border-color:#6366f1;color:#6366f1}
+.msg{margin-top:16px;font-size:16px;font-weight:600;min-height:24px}
+.msg.win{color:#22c55e}.msg.lose{color:#ef4444}
+.instructions{margin-top:16px;color:#6366f1;font-size:12px;text-align:center}
+@media(max-width:420px){.board{padding:8px}.cell{width:68px;height:68px;font-size:22px}.header{width:320px}}
+</style>
+</head>
+<body>
+<div class="header">
+<div class="title">1024</div>
+<div class="scores">
+<div class="score-box"><div class="score-label">Score</div><div class="score-value" id="score">0</div></div>
+<div class="score-box"><div class="score-label">Best</div><div class="score-value" id="best">0</div></div>
+</div>
+</div>
+<div class="board"><div class="grid" id="grid"></div></div>
+<div class="controls">
+<button class="btn btn-primary" onclick="newGame()">New Game</button>
+<button class="btn btn-outline" onclick="undo()">Undo</button>
+</div>
+<div class="msg" id="msg"></div>
+<div class="instructions">Arrow keys / WASD / Swipe to move</div>
+<script>
+const SIZE=4;let board,score,best=0,prevState,msgEl;
+function init(){board=Array.from({length:SIZE},()=>Array(SIZE).fill(0));score=0;prevState=null;msgEl=document.getElementById('msg');msgEl.textContent='';msgEl.className='msg';addRandom();addRandom();render()}
+function addRandom(){const empty=[];for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)if(board[r][c]===0)empty.push([r,c]);if(!empty.length)return;const[r,c]=empty[Math.floor(Math.random()*empty.length)];board[r][c]=Math.random()<.9?2:4;const cell=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);if(cell)cell.classList.add('new')}
+function render(){const grid=document.getElementById('grid');grid.innerHTML='';for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const cell=document.createElement('div');cell.className='cell';cell.dataset.row=r;cell.dataset.col=c;cell.dataset.value=board[r][c];cell.textContent=board[r][c]||'';grid.appendChild(cell)}document.getElementById('score').textContent=score;if(score>best){best=score;document.getElementById('best').textContent=best}}
+function slide(row){let a=row.filter(v=>v!==0);const merged=[];for(let i=0;i<a.length-1;i++){if(a[i]===a[i+1]){a[i]*=2;score+=a[i];a.splice(i+1,1);merged.push(i)}}const padded=a.concat(Array(SIZE-a.length).fill(0));return{result:padded,merged}}
+function move(dir){const old=board.map(r=>[...r]);const oldScore=score;let moved=false;const mergedCells=[];if(dir==='left'){for(let r=0;r<SIZE;r++){const{result,merged}=slide(board[r]);if(result.join()!==board[r].join())moved=true;board[r]=result;merged.forEach(c=>mergedCells.push([r,c]))}}else if(dir==='right'){for(let r=0;r<SIZE;r++){const{result,merged}=slide([...board[r]].reverse());result.reverse();if(result.join()!==board[r].join())moved=true;board[r]=result;merged.forEach(c=>mergedCells.push([r,SIZE-1-c]))}}else if(dir==='up'){for(let c=0;c<SIZE;c++){const col=board.map(r=>r[c]);const{result,merged}=slide(col);if(result.join()!==col.join())moved=true;result.forEach((v,r)=>board[r][c]=v);merged.forEach(r=>mergedCells.push([r,c]))}}else if(dir==='down'){for(let c=0;c<SIZE;c++){const col=board.map(r=>r[c]).reverse();const{result,merged}=slide(col);result.reverse();if(result.join()!==col.reverse().join())moved=true;result.forEach((v,r)=>board[r][c]=v);merged.forEach(r=>mergedCells.push([SIZE-1-r,c]))}}if(!moved)return false;prevState={board:old,score:oldScore};addRandom();render();mergedCells.forEach(([r,c])=>{const cell=document.querySelector(`[data-row="${r}"][data-col="${c}"]`);if(cell)cell.classList.add('merged')});checkState();return true}
+function checkState(){for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)if(board[r][c]===1024){msgEl.textContent='You Win!';msgEl.className='msg win';return}if(!canMove()){msgEl.textContent='Game Over!';msgEl.className='msg lose'}}
+function canMove(){for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){if(board[r][c]===0)return true;if(c<SIZE-1&&board[r][c]===board[r][c+1])return true;if(r<SIZE-1&&board[r][c]===board[r+1][c])return true}return false}
+function newGame(){init()}
+function undo(){if(!prevState)return;board=prevState.board;score=prevState.score;prevState=null;msgEl.textContent='';msgEl.className='msg';render()}
+document.addEventListener('keydown',e=>{const map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',a:'left',d:'right',w:'up',s:'down'};const dir=map[e.key];if(dir){e.preventDefault();move(dir)}});
+let touchStartX,touchStartY;document.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY});document.addEventListener('touchend',e=>{if(!touchStartX)return;const dx=e.changedTouches[0].clientX-touchStartX;const dy=e.changedTouches[0].clientY-touchStartY;const absDx=Math.abs(dx),absDy=Math.abs(dy);if(Math.max(absDx,absDy)<30)return;move(absDx>absDy?(dx>0?'right':'left'):(dy>0?'down':'up'));touchStartX=touchStartY=null});
+init();
+</script>
+</body>
+</html>"""
+
+
+TODO_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo App</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#e2e8f0}
+.container{width:420px;padding:32px}
+h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:24px}
+.input-row{display:flex;gap:8px;margin-bottom:24px}
+input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#1a1a2e;color:#e2e8f0;font-size:14px;outline:none}
+input:focus{border-color:#6366f1}
+.add-btn{padding:12px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+.filters{display:flex;gap:8px;margin-bottom:16px}
+.filter{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.1);background:transparent;color:#94a3b8;font-size:12px;cursor:pointer}
+.filter.active{background:rgba(99,102,241,.2);color:#818cf8;border-color:rgba(99,102,241,.3)}
+.todo-list{display:flex;flex-direction:column;gap:8px}
+.todo{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#1a1a2e;border-radius:8px;border:1px solid rgba(255,255,255,.06);transition:all .2s}
+.todo.done{opacity:.5}
+.todo.done .todo-text{text-decoration:line-through}
+.check{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.check:hover{border-color:#6366f1}
+.check.checked{background:#6366f1;border-color:#6366f1}
+.check.checked::after{content:'✓';color:#fff;font-size:12px;font-weight:700}
+.todo-text{flex:1;font-size:14px}
+.del{background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;opacity:0;transition:opacity .2s}
+.todo:hover .del{opacity:1}
+.empty{text-align:center;color:#6366f1;padding:40px;font-size:14px}
+.count{color:#94a3b8;font-size:12px;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Todo List</h1>
+<div class="input-row"><input id="inp" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addTodo()"><button class="add-btn" onclick="addTodo()">Add</button></div>
+<div class="filters"><button class="filter active" onclick="setFilter('all',this)">All</button><button class="filter" onclick="setFilter('active',this)">Active</button><button class="filter" onclick="setFilter('done',this)">Done</button></div>
+<div class="todo-list" id="list"></div>
+<div class="count" id="count"></div>
+</div>
+<script>
+let todos=[],filter='all';
+function addTodo(){const inp=document.getElementById('inp'),t=inp.value.trim();if(!t)return;todos.push({id:Date.now(),text:t,done:false});inp.value='';render()}
+function toggle(id){const t=todos.find(t=>t.id===id);if(t)t.done=!t.done;render()}
+function del(id){todos=todos.filter(t=>t.id!==id);render()}
+function setFilter(f,el){filter=f;document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));el.classList.add('active');render()}
+function render(){const list=document.getElementById('list');const filtered=filter==='all'?todos:filter==='active'?todos.filter(t=>!t.done):todos.filter(t=>t.done);if(!filtered.length){list.innerHTML='<div class="empty">'+(filter==='all'?'Add your first task!':filter==='active'?'No active tasks':'No completed tasks')+'</div>'}else{list.innerHTML=filtered.map(t=>'<div class="todo'+(t.done?' done':'')+'"><div class="check'+(t.done?' checked':'')+'" onclick="toggle('+t.id+')"></div><span class="todo-text">'+t.text+'</span><button class="del" onclick="del('+t.id+')">✕</button></div>').join('')}const active=todos.filter(t=>!t.done).length;document.getElementById('count').textContent=active+' task'+(active!==1?'s':'')+' remaining'}
+render();
+</script>
+</body>
+</html>"""
+
+
+COUNTER_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Counter</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#e2e8f0}
+.counter{text-align:center}
+.count{font-size:96px;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:32px;transition:transform .1s}
+.count.bump{transform:scale(1.1)}
+.buttons{display:flex;gap:16px;justify-content:center}
+.btn{width:64px;height:64px;border-radius:16px;border:none;font-size:28px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn:active{transform:scale(.9)}
+.btn-inc{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.btn-dec{background:rgba(239,68,68,.2);color:#f87171}
+.btn-reset{background:rgba(255,255,255,.06);color:#94a3b8;font-size:16px}
+.step{margin-top:24px;color:#94a3b8;font-size:14px}
+.step input{width:60px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:#1a1a2e;color:#e2e8f0;text-align:center;font-size:14px}
+</style>
+</head>
+<body>
+<div class="counter">
+<div class="count" id="count">0</div>
+<div class="buttons">
+<button class="btn btn-dec" onclick="change(-1)">−</button>
+<button class="btn btn-reset" onclick="reset()">↺</button>
+<button class="btn btn-inc" onclick="change(1)">+</button>
+</div>
+<div class="step">Step: <input id="step" type="number" value="1" min="1" max="100"></div>
+</div>
+<script>
+let count=0;const el=document.getElementById('count');
+function change(d){count+=d*parseInt(document.getElementById('step').value||1);el.textContent=count;el.classList.add('bump');setTimeout(()=>el.classList.remove('bump'),100)}
+function reset(){count=0;el.textContent=0}
+</script>
+</body>
+</html>"""
+
+
+ECOMMERCE_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--primary:#6366f1;--bg:#0f0f1a;--surface:#1a1a2e;--text:#e2e8f0;--muted:#94a3b8}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
+nav{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:var(--surface);border-bottom:1px solid rgba(255,255,255,.05)}
+.logo{font-size:20px;font-weight:800;background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.cart-btn{position:relative;background:none;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 16px;color:var(--text);cursor:pointer;font-size:14px}
+.cart-badge{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;width:18px;height:18px;border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center}
+.products{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;padding:32px;max-width:1200px;margin:0 auto}
+.card{background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.06);transition:transform .3s}
+.card:hover{transform:translateY(-4px)}
+.card-img{height:180px;display:flex;align-items:center;justify-content:center;font-size:48px}
+.card-body{padding:20px}
+.card-body h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.card-body p{color:var(--muted);font-size:13px;margin-bottom:12px}
+.price{font-size:20px;font-weight:700;color:var(--primary)}
+.add-btn{width:100%;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;cursor:pointer;font-size:13px;margin-top:12px}
+.add-btn:hover{opacity:.9}
+</style>
+</head>
+<body>
+<nav><div class="logo">Shop</div><button class="cart-btn" onclick="showCart()">🛒 Cart<span class="cart-badge" id="badge">0</span></button></nav>
+<div class="products" id="products"></div>
+<script>
+const products=[{id:1,name:'Wireless Headphones',desc:'Premium sound quality',price:79.99,emoji:'🎧'},{id:2,name:'Smart Watch',desc:'Track your fitness',price:199.99,emoji:'⌚'},{id:3,name:'Laptop Stand',desc:'Ergonomic design',price:49.99,emoji:'💻'},{id:4,name:'Mechanical Keyboard',desc:'Cherry MX switches',price:129.99,emoji:'⌨️'},{id:5,name:'Webcam HD',desc:'1080p with mic',price:59.99,emoji:'📷'},{id:6,name:'Desk Lamp',desc:'LED with dimmer',price:34.99,emoji:'💡'}];
+let cart=[];
+function render(){document.getElementById('products').innerHTML=products.map(p=>'<div class="card"><div class="card-img" style="background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.2))">'+p.emoji+'</div><div class="card-body"><h3>'+p.name+'</h3><p>'+p.desc+'</p><div class="price">$'+p.price.toFixed(2)+'</div><button class="add-btn" onclick="addToCart('+p.id+')">Add to Cart</button></div></div>').join('')}
+function addToCart(id){const p=products.find(x=>x.id===id);if(p)cart.push(p);document.getElementById('badge').textContent=cart.length}
+function showCart(){const total=cart.reduce((s,p)=>s+p.price,0);alert('Cart: '+cart.length+' items\\nTotal: $'+total.toFixed(2))}
+render();
+</script>
+</body>
+</html>"""

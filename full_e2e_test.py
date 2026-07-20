@@ -301,11 +301,14 @@ def test_sse_review_mode():
         "name": "Review Mode Test", "mode": "review"
     })
     pid = r2.json()["id"]
-    api("post", f"/api/chat/{pid}/message", token=TOKEN,
+    r = api("post", f"/api/chat/{pid}/message", token=TOKEN,
         json_data={"content": "Review this landing page", "mode": "review"}, stream=True, timeout=90)
-    r = api("get", f"/api/chat/{pid}/history", token=TOKEN)
     assert r.status_code == 200
-    assert len(r.json()) >= 2
+    has_code = False
+    for line in r.iter_lines():
+        if "code_generated" in line.decode():
+            has_code = True
+    assert has_code, "review mode: no code_generated"
 
 def test_chat_invalid_project():
     r = api("post", "/api/chat/00000000-0000-0000-0000-000000000000/message", token=TOKEN,

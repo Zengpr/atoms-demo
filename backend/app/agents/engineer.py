@@ -98,6 +98,7 @@ class EngineerAgent(BaseAgent):
         return code
 
     def _mock_iterate(self, task: str, prev_code: str, is_iteration: bool) -> str:
+        from app.utils.llm import LLMProvider, _generate_landing_html
         if is_iteration and prev_code:
             task_lower = task.lower()
             if any(w in task_lower for w in ["dark", "dark mode", "toggle"]):
@@ -110,14 +111,21 @@ class EngineerAgent(BaseAgent):
                 return self._add_contact_form(prev_code)
             return prev_code
 
-        from app.utils.llm import _generate_landing_html
         task_lower = task.lower()
         if any(w in task_lower for w in ["dashboard", "admin", "analytics", "chart"]):
-            return LLMProvider._dashboard_html()  # type: ignore
+            return LLMProvider._dashboard_html()
         if any(w in task_lower for w in ["portfolio", "personal", "resume", "about"]):
-            return LLMProvider._portfolio_html()  # type: ignore
+            return LLMProvider._portfolio_html()
         if any(w in task_lower for w in ["calculator", "tool", "converter"]):
-            return LLMProvider._calculator_html()  # type: ignore
+            return LLMProvider._calculator_html()
+        if any(w in task_lower for w in ["game", "2048", "1024", "snake", "tetris", "puzzle", "play", "\u6e38\u620f", "\u8d2a\u5403\u86c7"]):
+            return LLMProvider._game_2048_html()
+        if any(w in task_lower for w in ["todo", "task", "list", "checklist"]):
+            return LLMProvider._todo_html()
+        if any(w in task_lower for w in ["counter", "count", "increment"]):
+            return LLMProvider._counter_html()
+        if any(w in task_lower for w in ["ecommerce", "shop", "store", "product", "cart"]):
+            return LLMProvider._ecommerce_html()
         return _generate_landing_html()
 
     def _add_dark_toggle(self, code: str) -> str:
