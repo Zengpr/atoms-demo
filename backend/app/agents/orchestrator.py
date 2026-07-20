@@ -13,6 +13,7 @@ from app.utils.llm import llm_provider
 
 
 MOCK_DELAY = 0.5
+HEARTBEAT_SEC = 3
 
 
 async def _mock_delay():
@@ -20,20 +21,79 @@ async def _mock_delay():
         await asyncio.sleep(MOCK_DELAY)
 
 
+async def _heartbeat(name: str, emoji: str, message: str) -> AsyncIterator[dict[str, Any]]:
+    while True:
+        await asyncio.sleep(HEARTBEAT_SEC)
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": name, "emoji": emoji, "message": message},
+        }
+
+
 async def _stream_llm_as_events(
     agent: BaseAgent,
     stream_method: str,
     task: str,
     context: dict[str, Any],
+    waiting_msg: str = "",
 ) -> AsyncIterator[dict[str, Any]]:
     method = getattr(agent, stream_method)
     full_text = ""
-    async for chunk in method(task, context):
-        full_text += chunk
-        yield {
-            "event": "agent_stream",
-            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "chunk": chunk},
-        }
+    first_token = True
+    gen = method(task, context)
+    heartbeat_gen = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg or f"Waiting for {agent.name}...")
+
+    gen_task = asyncio.create_task(gen.__anext__())
+    hb_task = asyncio.create_task(heartbeat_gen.__anext__())
+
+    done_set: set[asyncio.Task] = set()
+    pending = {gen_task, hb_task}
+
+    try:
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            done_set.update(done)
+
+            for t in done:
+                if t is gen_task:
+                    try:
+                        chunk = t.result()
+                        if first_token:
+                            first_token = False
+                            hb_task.cancel()
+                            try:
+                                await hb_task
+                            except (asyncio.CancelledError, StopAsyncIteration):
+                                pass
+                        full_text += chunk
+                        yield {
+                            "event": "agent_stream",
+                            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "chunk": chunk},
+                        }
+                        gen_task = asyncio.create_task(gen.__anext__())
+                        pending.add(gen_task)
+                    except StopAsyncIteration:
+                        pass
+                    except Exception:
+                        pass
+                elif t is hb_task:
+                    try:
+                        ev = t.result()
+                        yield ev
+                        hb_task = asyncio.create_task(heartbeat_gen.__anext__())
+                        pending.add(hb_task)
+                    except (StopAsyncIteration, asyncio.CancelledError):
+                        pass
+
+    finally:
+        gen_task.cancel()
+        hb_task.cancel()
+        for t in {gen_task, hb_task}:
+            try:
+                await t
+            except (asyncio.CancelledError, StopAsyncIteration, Exception):
+                pass
+
     yield {
         "event": "agent_stream_done",
         "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "full_text": full_text},
@@ -46,6 +106,63 @@ async def _collect_stream(stream: AsyncIterator[dict[str, Any]]) -> str:
         if ev["event"] == "agent_stream_done":
             full = ev["data"]["full_text"]
     return full
+
+
+async def _collect_code_with_heartbeat(
+    agent: BaseAgent,
+    task: str,
+    context: dict[str, Any],
+    waiting_msg: str = "",
+) -> AsyncIterator[dict[str, Any]]:
+    gen = agent.act_stream(task, context)
+    hb = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg or f"{agent.avatar_emoji} {agent.name} is generating code...")
+    code = ""
+    act_task = asyncio.create_task(gen.__anext__())
+    hb_task = asyncio.create_task(hb.__anext__())
+    pending = {act_task, hb_task}
+    first_token = True
+    try:
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            for t in done:
+                if t is act_task:
+                    try:
+                        chunk = t.result()
+                        if first_token:
+                            first_token = False
+                            hb_task.cancel()
+                            try:
+                                await hb_task
+                            except (asyncio.CancelledError, StopAsyncIteration):
+                                pass
+                        code += chunk
+                        act_task = asyncio.create_task(gen.__anext__())
+                        pending.add(act_task)
+                    except StopAsyncIteration:
+                        pass
+                    except Exception:
+                        pass
+                elif t is hb_task:
+                    try:
+                        ev = t.result()
+                        yield ev
+                        hb_task = asyncio.create_task(hb.__anext__())
+                        pending.add(hb_task)
+                    except (StopAsyncIteration, asyncio.CancelledError):
+                        pass
+    finally:
+        act_task.cancel()
+        hb_task.cancel()
+        for t in {act_task, hb_task}:
+            try:
+                await t
+            except (asyncio.CancelledError, StopAsyncIteration, Exception):
+                pass
+
+    yield {
+        "event": "code_collected",
+        "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "code": code},
+    }
 
 
 class Orchestrator:
@@ -70,7 +187,7 @@ class Orchestrator:
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is analyzing your request..."},
         }
 
-        think_gen = _stream_llm_as_events(engineer, "think_stream", task, context)
+        think_gen = _stream_llm_as_events(engineer, "think_stream", task, context, waiting_msg="Connecting to AI model...")
         thought = ""
         async for ev in think_gen:
             if ev["event"] == "agent_stream":
@@ -92,8 +209,11 @@ class Orchestrator:
 
         act_context = {**context, "thought": thought}
         code = ""
-        async for chunk in engineer.act_stream(task, act_context):
-            code += chunk
+        async for ev in _collect_code_with_heartbeat(engineer, task, act_context, f"{engineer.avatar_emoji} {engineer.name} is generating code..."):
+            if ev["event"] == "code_collected":
+                code = ev["data"]["code"]
+            else:
+                yield ev
 
         code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
@@ -224,8 +344,11 @@ class Orchestrator:
         }
 
         code = ""
-        async for chunk in engineer.act_stream(task, enriched_context):
-            code += chunk
+        async for ev in _collect_code_with_heartbeat(engineer, task, enriched_context):
+            if ev["event"] == "code_collected":
+                code = ev["data"]["code"]
+            else:
+                yield ev
 
         code = self._extract_html(code)
         total_duration = int((time.time() - total_start) * 1000)
@@ -260,8 +383,11 @@ class Orchestrator:
             "event": "agent_thinking",
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy A: {engineer.avatar_emoji} {engineer.name} is building..."},
         }
-        async for chunk in engineer.act_stream(task, context):
-            code_a += chunk
+        async for ev in _collect_code_with_heartbeat(engineer, task, context):
+            if ev["event"] == "code_collected":
+                code_a = ev["data"]["code"]
+            else:
+                yield ev
 
         code_a = self._extract_html(code_a)
 
@@ -271,8 +397,11 @@ class Orchestrator:
             "event": "agent_thinking",
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy B: {engineer.avatar_emoji} {engineer.name} is building alternative..."},
         }
-        async for chunk in engineer.act_stream(f"Alternative creative approach: {task}", context_b):
-            code_b += chunk
+        async for ev in _collect_code_with_heartbeat(engineer, f"Alternative creative approach: {task}", context_b):
+            if ev["event"] == "code_collected":
+                code_b = ev["data"]["code"]
+            else:
+                yield ev
 
         code_b = self._extract_html(code_b)
         duration = int((time.time() - start) * 1000)
@@ -357,8 +486,11 @@ class Orchestrator:
 
         act_context = {**context, "thought": thought, "is_iteration": True}
         code = ""
-        async for chunk in engineer.act_stream(task, act_context):
-            code += chunk
+        async for ev in _collect_code_with_heartbeat(engineer, task, act_context):
+            if ev["event"] == "code_collected":
+                code = ev["data"]["code"]
+            else:
+                yield ev
 
         code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
