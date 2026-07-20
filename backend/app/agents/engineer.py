@@ -42,7 +42,12 @@ class EngineerAgent(BaseAgent):
             prompt += f"PRD: {prd[:500]}\n\n"
         if arch:
             prompt += f"Architecture: {arch[:500]}\n\n"
-        prompt += "Describe your implementation plan briefly (2-3 sentences)."
+        prompt += (
+            "Analyze the request and describe your implementation plan. "
+            "Explain what you will build, the structure, key components, and design decisions. "
+            "Do NOT write any code here — just your analysis and plan. "
+            "Keep it concise (3-5 sentences)."
+        )
         return prompt
 
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:

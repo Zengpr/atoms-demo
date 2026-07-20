@@ -92,13 +92,8 @@ class Orchestrator:
 
         act_context = {**context, "thought": thought}
         code = ""
-        act_gen = _stream_llm_as_events(engineer, "act_stream", task, act_context)
-        async for ev in act_gen:
-            if ev["event"] == "agent_stream":
-                code += ev["data"]["chunk"]
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                code = ev["data"]["full_text"]
+        async for chunk in engineer.act_stream(task, act_context):
+            code += chunk
 
         code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
@@ -229,13 +224,8 @@ class Orchestrator:
         }
 
         code = ""
-        act_gen = _stream_llm_as_events(engineer, "act_stream", task, enriched_context)
-        async for ev in act_gen:
-            if ev["event"] == "agent_stream":
-                code += ev["data"]["chunk"]
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                code = ev["data"]["full_text"]
+        async for chunk in engineer.act_stream(task, enriched_context):
+            code += chunk
 
         code = self._extract_html(code)
         total_duration = int((time.time() - total_start) * 1000)
@@ -270,13 +260,8 @@ class Orchestrator:
             "event": "agent_thinking",
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy A: {engineer.avatar_emoji} {engineer.name} is building..."},
         }
-        act_gen_a = _stream_llm_as_events(engineer, "act_stream", task, context)
-        async for ev in act_gen_a:
-            if ev["event"] == "agent_stream":
-                code_a += ev["data"]["chunk"]
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                code_a = ev["data"]["full_text"]
+        async for chunk in engineer.act_stream(task, context):
+            code_a += chunk
 
         code_a = self._extract_html(code_a)
 
@@ -286,13 +271,8 @@ class Orchestrator:
             "event": "agent_thinking",
             "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy B: {engineer.avatar_emoji} {engineer.name} is building alternative..."},
         }
-        act_gen_b = _stream_llm_as_events(engineer, "act_stream", f"Alternative creative approach: {task}", context_b)
-        async for ev in act_gen_b:
-            if ev["event"] == "agent_stream":
-                code_b += ev["data"]["chunk"]
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                code_b = ev["data"]["full_text"]
+        async for chunk in engineer.act_stream(f"Alternative creative approach: {task}", context_b):
+            code_b += chunk
 
         code_b = self._extract_html(code_b)
         duration = int((time.time() - start) * 1000)
@@ -377,13 +357,8 @@ class Orchestrator:
 
         act_context = {**context, "thought": thought, "is_iteration": True}
         code = ""
-        act_gen = _stream_llm_as_events(engineer, "act_stream", task, act_context)
-        async for ev in act_gen:
-            if ev["event"] == "agent_stream":
-                code += ev["data"]["chunk"]
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                code = ev["data"]["full_text"]
+        async for chunk in engineer.act_stream(task, act_context):
+            code += chunk
 
         code = self._extract_html(code)
         duration = int((time.time() - start) * 1000)
