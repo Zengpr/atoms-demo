@@ -127,17 +127,30 @@ export const useChatStore = create<ChatState>((set) => ({
   },
 }));
 
+interface ConsoleError {
+  message: string;
+  line?: number;
+  source?: string;
+}
+
 interface PreviewState {
   previewHtml: string;
   previewUrl: string;
+  consoleErrors: ConsoleError[];
   setPreviewHtml: (html: string) => void;
   setPreviewUrl: (url: string) => void;
+  addConsoleError: (err: ConsoleError) => void;
+  clearConsoleErrors: () => void;
 }
 
 export const usePreviewStore = create<PreviewState>((set) => ({
   previewHtml: "",
   previewUrl: "",
+  consoleErrors: [],
 
-  setPreviewHtml: (html) => set({ previewHtml: html }),
+  setPreviewHtml: (html) => set({ previewHtml: html, consoleErrors: [] }),
   setPreviewUrl: (url) => set({ previewUrl: url }),
+  addConsoleError: (err) =>
+    set((s) => ({ consoleErrors: [...s.consoleErrors.slice(-19), err] })),
+  clearConsoleErrors: () => set({ consoleErrors: [] }),
 }));

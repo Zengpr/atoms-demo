@@ -148,16 +148,21 @@ export interface SSEMessage {
 export async function* streamChat(
   projectId: string,
   content: string,
-  mode: ChatMode
+  mode: ChatMode,
+  consoleErrors?: string[]
 ): AsyncGenerator<SSEMessage> {
   const token = getToken();
+  const body: Record<string, unknown> = { content, mode };
+  if (consoleErrors && consoleErrors.length > 0) {
+    body.console_errors = consoleErrors;
+  }
   const res = await fetch(`${SSE_BASE}/api/chat/${projectId}/message`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ content, mode }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

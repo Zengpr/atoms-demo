@@ -77,6 +77,7 @@ async def process_chat(
     project_id: str,
     mode: str,
     user_message: str,
+    console_errors: list[str] | None = None,
 ) -> AsyncIterator[dict]:
     conv = await get_or_create_conversation(db, project_id, mode)
 
@@ -96,6 +97,7 @@ async def process_chat(
         "conversation_history": history_lines,
         "previous_code": last_code,
         "is_iteration": len(prev_messages) > 1,
+        "console_errors": console_errors or [],
     }
 
     accumulated_code: Optional[str] = None

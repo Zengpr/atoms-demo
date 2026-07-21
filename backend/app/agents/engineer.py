@@ -137,15 +137,29 @@ class EngineerAgent(BaseAgent):
         else:
             prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
 
+        console_errors = context.get("console_errors", [])
+        error_section = ""
+        if console_errors:
+            error_section = (
+                "\nBROWSER CONSOLE ERRORS (these are REAL errors from running the code — YOU MUST FIX THEM):\n"
+                + "\n".join(f"- {e}" for e in console_errors)
+                + "\n\nThese errors MUST be fixed in your new output. Do NOT ignore them.\n"
+            )
+
         prompt += (
             "OUTPUT FORMAT — follow this exactly:\n"
             "1. **Analysis** — What is this? What features are essential? What makes it genuinely useful/impressive? What edge cases?\n"
             "2. **Design** — Layout structure, state/data model, key algorithms, interaction flow, styling approach\n"
             "3. **Implementation** — Output a SINGLE, COMPLETE HTML file starting with <!DOCTYPE html>\n\n"
+            + error_section +
             "CRITICAL:\n"
             "- Games MUST have: complete game loop (start→play→end), scoring, controls, win/lose, restart\n"
+            "- Games: add window.onerror handler that alerts the error so bugs are visible\n"
+            "- Games: the start/play button MUST be a real <button> element, NOT canvas-only click detection\n"
+            "- Games: initialize ALL game objects (player, enemies, etc.) at declaration time, not just in loadLevel()\n"
             "- Calculators MUST: handle all inputs, real-time display updates, edge cases\n"
             "- ALL interactive elements MUST work — no broken handlers, no undefined variables\n"
+            "- Test every function call mentally — if you reference a variable, make sure it's initialized BEFORE use\n"
             "- Start HTML with <!DOCTYPE html> — NO markdown fences\n"
             "- Beautiful polished UI with modern CSS\n"
             "- Must render in an iframe\n"

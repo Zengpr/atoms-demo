@@ -21,7 +21,7 @@ function getAgentEmoji(name: string): string {
 export function ChatPanel({ projectId }: ChatPanelProps) {
   const { messages, isStreaming, addMessage, updateLastAgentMessage, setStreaming, currentMode } =
     useChatStore();
-  const { setPreviewHtml } = usePreviewStore();
+  const { setPreviewHtml, consoleErrors, clearConsoleErrors } = usePreviewStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,11 +42,16 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       addMessage(userMsg);
       setStreaming(true);
 
+      const errorMessages = consoleErrors.map(
+        (e) => `${e.message}${e.line ? ` (line ${e.line})` : ""}`
+      );
+      clearConsoleErrors();
+
       let receivedComplete = false;
       let lastThinkingId: string | null = null;
 
       try {
-        for await (const sse of streamChat(projectId, content, currentMode)) {
+        for await (const sse of streamChat(projectId, content, currentMode, errorMessages)) {
           const agentName = (sse.data.agent as string) ?? "System";
           const emoji = getAgentEmoji(agentName);
 

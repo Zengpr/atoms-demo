@@ -7,6 +7,7 @@ from app.schemas.config import CAMEL_CONFIG
 class ChatMessage(BaseModel):
     content: str
     mode: str = "engineer"
+    console_errors: list[str] = []
 
 
 class MessageResponse(BaseModel):
