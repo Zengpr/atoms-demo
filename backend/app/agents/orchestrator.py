@@ -111,6 +111,92 @@ async def _collect_stream(stream: AsyncIterator[dict[str, Any]]) -> str:
     return full
 
 
+async def _stream_phase(
+    agent: BaseAgent,
+    label: str,
+    thinking_msg: str,
+    waiting_msg: str,
+    stream_gen: AsyncIterator[str],
+) -> AsyncIterator[tuple[dict[str, Any], str]]:
+    full_text = ""
+    yield (
+        {
+            "event": "agent_thinking",
+            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "message": f"{agent.avatar_emoji} {agent.name} is {thinking_msg}..."},
+        },
+        "",
+    )
+    yield (
+        {
+            "event": "agent_action",
+            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": label},
+        },
+        "",
+    )
+
+    hb = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg)
+    gen_task = asyncio.create_task(stream_gen.__anext__())
+    hb_task = asyncio.create_task(hb.__anext__())
+    pending = {gen_task, hb_task}
+    first_token = True
+
+    try:
+        while pending:
+            done, pending_new = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            pending = pending_new
+            for t in done:
+                if t is gen_task:
+                    try:
+                        chunk = t.result()
+                        if first_token:
+                            first_token = False
+                            hb_task.cancel()
+                            try:
+                                await hb_task
+                            except (asyncio.CancelledError, StopAsyncIteration):
+                                pass
+                        full_text += chunk
+                        clean = chunk.strip()
+                        if clean:
+                            yield (
+                                {
+                                    "event": "agent_stream",
+                                    "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "chunk": clean},
+                                },
+                                chunk,
+                            )
+                        gen_task = asyncio.create_task(stream_gen.__anext__())
+                        pending.add(gen_task)
+                    except StopAsyncIteration:
+                        pass
+                    except Exception as e:
+                        logger.error(f"Stream error ({label}): {e}")
+                elif t is hb_task:
+                    try:
+                        ev = t.result()
+                        yield (ev, "")
+                        hb_task = asyncio.create_task(hb.__anext__())
+                        pending.add(hb_task)
+                    except (StopAsyncIteration, asyncio.CancelledError):
+                        pass
+    finally:
+        gen_task.cancel()
+        hb_task.cancel()
+        for t in {gen_task, hb_task}:
+            try:
+                await t
+            except (asyncio.CancelledError, StopAsyncIteration, Exception):
+                pass
+
+    yield (
+        {
+            "event": "agent_action",
+            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": f"{label} complete"},
+        },
+        "",
+    )
+
+
 async def _collect_code_with_heartbeat(
     agent: BaseAgent,
     task: str,
@@ -185,21 +271,6 @@ class Orchestrator:
         engineer = self.agents["engineer"]
         start = time.time()
 
-        yield {
-            "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is working on your request..."},
-        }
-
-        full_text = ""
-        code_started = False
-        text_buffer = ""
-        gen = engineer.act_stream(task, context)
-        hb = _heartbeat(engineer.name, engineer.avatar_emoji, "Connecting to AI model...")
-        act_task = asyncio.create_task(gen.__anext__())
-        hb_task = asyncio.create_task(hb.__anext__())
-        pending = {act_task, hb_task}
-        first_token = True
-
         CODE_MARKERS = ["<!doctype", "<html", "```html", "```htm"]
 
         def _find_code_start(text: str) -> int:
@@ -210,6 +281,22 @@ class Orchestrator:
                 if pos != -1 and (idx == -1 or pos < idx):
                     idx = pos
             return idx
+
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is working on your request..."},
+        }
+
+        act_prompt = engineer._build_act_prompt(task, context)
+        full_text = ""
+        code_started = False
+
+        gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_system_prompt(), act_prompt, temperature=0.4, max_tokens=32768)
+        hb = _heartbeat(engineer.name, engineer.avatar_emoji, "Connecting to AI model...")
+        act_task = asyncio.create_task(gen.__anext__())
+        hb_task = asyncio.create_task(hb.__anext__())
+        pending = {act_task, hb_task}
+        first_token = True
 
         try:
             while pending:
@@ -232,10 +319,10 @@ class Orchestrator:
                                 code_idx = _find_code_start(full_text)
                                 if code_idx != -1:
                                     code_started = True
-                                    text_buffer = full_text[:code_idx].strip()
-                                    text_buffer = re.sub(r'```.*?$', '', text_buffer, flags=re.DOTALL).strip()
-                                    if text_buffer:
-                                        words = text_buffer.split(" ")
+                                    text_part = full_text[:code_idx].strip()
+                                    text_part = re.sub(r'```.*?$', '', text_part, flags=re.DOTALL).strip()
+                                    if text_part:
+                                        words = text_part.split(" ")
                                         for i, w in enumerate(words):
                                             yield {
                                                 "event": "agent_stream",

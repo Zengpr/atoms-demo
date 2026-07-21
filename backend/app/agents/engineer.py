@@ -21,7 +21,6 @@ class EngineerAgent(BaseAgent):
             "You implement complete, working web applications based on PRDs and architecture docs. "
             "Your code is well-structured, responsive, and visually polished. "
             "You always output COMPLETE, WORKING HTML+CSS+JS code that can be rendered in an iframe. "
-            "IMPORTANT: First write a brief analysis (2-3 sentences), then output the HTML code. "
             "Do NOT wrap code in markdown fences. Start HTML directly with <!DOCTYPE html>."
         )
 
@@ -29,66 +28,127 @@ class EngineerAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "💻"
 
-    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
-        prd = context.get("prd", "")
-        arch = context.get("architecture", "")
+    def _build_analyze_prompt(self, task: str, context: dict[str, Any]) -> str:
         is_iteration = context.get("is_iteration", False)
         history = context.get("conversation_history", [])
+        prev_code = context.get("previous_code", "")
 
-        prompt = f"Request: {task}\n\n"
+        prompt = f"User request: {task}\n\n"
         if is_iteration:
-            prompt = f"[ITERATION] The user wants to modify an existing application.\n\n{prompt}"
+            prompt = "[ITERATION MODE] The user wants to modify an existing application.\n\n"
+            if prev_code:
+                prompt += f"Current application code (truncated):\n```\n{prev_code[:3000]}\n```\n\n"
             if history:
-                prompt += "Previous conversation:\n" + "\n".join(history[-6:]) + "\n\n"
-        if prd:
-            prompt += f"PRD: {prd[:500]}\n\n"
-        if arch:
-            prompt += f"Architecture: {arch[:500]}\n\n"
+                prompt += "Recent conversation:\n" + "\n".join(history[-6:]) + "\n\n"
+            prompt += (
+                "Analyze what specific changes are needed. Identify:\n"
+                "1. What parts of the current code need to change\n"
+                "2. What new features/functionality to add\n"
+                "3. Any bugs or issues in the current code that should be fixed\n"
+                "Be thorough and specific. Do NOT write code yet."
+            )
+        else:
+            prompt += (
+                "Analyze this request thoroughly. Think about:\n"
+                "1. What is the user really trying to build? Go beyond the literal request — what would make this genuinely useful and impressive?\n"
+                "2. What features and interactions are essential for this to work well?\n"
+                "3. What edge cases or usability issues need to be handled?\n"
+                "4. What would make the result stand out versus a basic implementation?\n"
+                "Be specific and detailed. Do NOT write code yet."
+            )
+        return prompt
+
+    def _build_design_prompt(self, task: str, context: dict[str, Any], analysis: str) -> str:
+        is_iteration = context.get("is_iteration", False)
+        prompt = f"User request: {task}\n\nAnalysis:\n{analysis}\n\n"
+        if is_iteration:
+            prompt += (
+                "Based on this analysis, design the implementation approach:\n"
+                "1. Component structure — what HTML sections and JS modules\n"
+                "2. State management — what data needs to be tracked\n"
+                "3. Event handling — what user interactions to wire up\n"
+                "4. Specific code changes — describe exactly what to modify\n"
+                "Be concrete. Do NOT write code yet."
+            )
+        else:
+            prompt += (
+                "Based on this analysis, design the implementation:\n"
+                "1. Component/layout structure — HTML sections and hierarchy\n"
+                "2. State & data — what variables and data structures are needed\n"
+                "3. Interactions & logic — event handlers, game loops, algorithms\n"
+                "4. Styling approach — colors, layout, animations, responsive breakpoints\n"
+                "5. Key technical decisions — libraries, patterns, optimizations\n"
+                "Be concrete and specific. Do NOT write code yet."
+            )
+        return prompt
+
+    def _build_implement_prompt(self, task: str, context: dict[str, Any], analysis: str, design: str) -> str:
+        prev_code = context.get("previous_code", "")
+        is_iteration = context.get("is_iteration", False)
+
+        if is_iteration and prev_code:
+            prompt = (
+                f"[ITERATION] Modify the existing application.\n\n"
+                f"User request: {task}\n\n"
+                f"Analysis:\n{analysis}\n\n"
+                f"Design:\n{design}\n\n"
+                f"Current code:\n{prev_code}\n\n"
+                f"Apply ALL the designed changes. Output the COMPLETE modified HTML file.\n\n"
+            )
+        else:
+            prompt = (
+                f"Implement a COMPLETE, WORKING web application.\n\n"
+                f"User request: {task}\n\n"
+                f"Analysis:\n{analysis}\n\n"
+                f"Design:\n{design}\n\n"
+            )
+
         prompt += (
-            "Analyze the request and describe your implementation plan. "
-            "Explain what you will build, the structure, key components, and design decisions. "
-            "Do NOT write any code here — just your analysis and plan. "
-            "Keep it concise (3-5 sentences)."
+            "CRITICAL REQUIREMENTS:\n"
+            "1. Output a SINGLE, COMPLETE HTML file with embedded CSS and JS\n"
+            "2. Start HTML with <!DOCTYPE html> directly — NO markdown code fences, NO explanation before the code\n"
+            "3. ALL interactive elements MUST actually work — buttons click, games playable, forms submit\n"
+            "4. For games: must have complete game loop (start → play → end), scoring, controls, and win/lose conditions\n"
+            "5. For calculators: must handle all button inputs correctly, display updates in real-time\n"
+            "6. Test your logic mentally before outputting — no broken event handlers, no undefined variables\n"
+            "7. Use modern CSS (Grid, Flexbox, custom properties) with beautiful, polished UI\n"
+            "8. Responsive design for all screen sizes\n"
+            "9. Must render correctly in an iframe\n"
         )
         return prompt
 
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
+        return self._build_analyze_prompt(task, context)
+
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
-        prd = context.get("prd", "")
-        arch = context.get("architecture", "")
         prev_code = context.get("previous_code", "")
         is_iteration = context.get("is_iteration", False)
         history = context.get("conversation_history", [])
 
         if is_iteration and prev_code:
             prompt = (
-                f"[ITERATION] The user wants to modify the existing application.\n\n"
+                f"[ITERATION] Modify the existing application.\n\n"
                 f"User request: {task}\n\n"
-                f"Here is the CURRENT code that needs to be modified:\n\n"
-                f"{prev_code}\n\n"
-                f"Apply the user's requested changes to this code. "
-                f"Output the COMPLETE modified HTML file (not just the changed parts). "
-                f"Keep all existing functionality while adding the requested changes.\n\n"
+                f"Current code:\n{prev_code}\n\n"
             )
             if history:
-                prompt += "Conversation context:\n" + "\n".join(history[-6:]) + "\n\n"
+                prompt += "Conversation:\n" + "\n".join(history[-6:]) + "\n\n"
+            prompt += "First output your analysis of what needs to change and any bugs to fix. Then output the COMPLETE modified HTML file.\n\n"
         else:
-            prompt = f"Implement a COMPLETE, WORKING web application for:\n\nRequest: {task}\n\n"
-            if prd:
-                prompt += f"PRD: {prd[:800]}\n\n"
-            if arch:
-                prompt += f"Architecture: {arch[:800]}\n\n"
+            prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
 
         prompt += (
-            "CRITICAL REQUIREMENTS:\n"
-            "1. First, write a brief analysis (2-3 sentences) about what you will build\n"
-            "2. Then output a SINGLE, COMPLETE HTML file with embedded CSS and JS\n"
-            "3. Start HTML with <!DOCTYPE html> directly — NO markdown code fences\n"
-            "4. Keep code concise but functional — use minified CSS where possible\n"
-            "5. Must render correctly in an iframe\n"
-            "6. Use modern CSS (Grid, Flexbox, custom properties)\n"
-            "7. Responsive design for all screen sizes\n"
-            "8. Beautiful, polished UI with gradients and shadows\n"
-            "9. All interactive elements must work\n"
+            "OUTPUT FORMAT — follow this exactly:\n"
+            "1. **Analysis** — What is this? What features are essential? What makes it genuinely useful/impressive? What edge cases?\n"
+            "2. **Design** — Layout structure, state/data model, key algorithms, interaction flow, styling approach\n"
+            "3. **Implementation** — Output a SINGLE, COMPLETE HTML file starting with <!DOCTYPE html>\n\n"
+            "CRITICAL:\n"
+            "- Games MUST have: complete game loop (start→play→end), scoring, controls, win/lose, restart\n"
+            "- Calculators MUST: handle all inputs, real-time display updates, edge cases\n"
+            "- ALL interactive elements MUST work — no broken handlers, no undefined variables\n"
+            "- Start HTML with <!DOCTYPE html> — NO markdown fences\n"
+            "- Beautiful polished UI with modern CSS\n"
+            "- Must render in an iframe\n"
         )
         return prompt
 

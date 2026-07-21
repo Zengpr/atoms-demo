@@ -219,7 +219,7 @@ class LLMProvider:
             return True
         return not self.api_key or self.api_key.startswith("your-")
 
-    async def generate(self, system_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 4096) -> str:
+    async def generate(self, system_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 32768) -> str:
         if self.is_mock:
             return self._mock_generate(system_prompt, user_prompt)
         response = await self._client.chat.completions.create(
@@ -233,7 +233,7 @@ class LLMProvider:
         )
         return response.choices[0].message.content
 
-    async def generate_stream(self, system_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 4096) -> AsyncIterator[str]:
+    async def generate_stream(self, system_prompt: str, user_prompt: str, temperature: float = 0.7, max_tokens: int = 32768) -> AsyncIterator[str]:
         if self.is_mock:
             full_text = self._mock_generate(system_prompt, user_prompt)
             words = full_text.split(" ")
