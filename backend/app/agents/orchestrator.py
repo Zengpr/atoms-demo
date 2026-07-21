@@ -2,7 +2,10 @@ import json
 import re
 import asyncio
 import time
+import logging
 from typing import Any, AsyncIterator
+
+logger = logging.getLogger(__name__)
 from app.agents.base import BaseAgent
 from app.agents.leader import LeaderAgent
 from app.agents.pm import PMAgent
@@ -74,8 +77,8 @@ async def _stream_llm_as_events(
                         pending.add(gen_task)
                     except StopAsyncIteration:
                         pass
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.error(f"Stream error for {agent.name}: {e}")
                 elif t is hb_task:
                     try:
                         ev = t.result()
@@ -140,8 +143,8 @@ async def _collect_code_with_heartbeat(
                         pending.add(act_task)
                     except StopAsyncIteration:
                         pass
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.error(f"Code collect error for {agent.name}: {e}")
                 elif t is hb_task:
                     try:
                         ev = t.result()
@@ -223,23 +226,27 @@ class Orchestrator:
                                 if html_idx != -1:
                                     code_started = True
                                     text_part = full_text[:html_idx].strip()
+                                    text_part = re.sub(r'```.*?$', '', text_part, flags=re.DOTALL).strip()
                                     if text_part:
-                                        text_part = re.sub(r'```.*?$', '', text_part, flags=re.DOTALL).strip()
-                                    if text_part:
-                                        yield {
-                                            "event": "agent_stream",
-                                            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": text_part},
-                                        }
+                                        words = text_part.split(" ")
+                                        for i, w in enumerate(words):
+                                            yield {
+                                                "event": "agent_stream",
+                                                "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": w + (" " if i < len(words) - 1 else "")},
+                                            }
+                                            await asyncio.sleep(0.03)
                                     yield {
                                         "event": "agent_action",
                                         "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Writing code..."},
                                     }
+                                else:
+                                    pass
                             act_task = asyncio.create_task(gen.__anext__())
                             pending.add(act_task)
                         except StopAsyncIteration:
                             pass
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.error(f"Engineer stream error: {e}")
                     elif t is hb_task:
                         try:
                             ev = t.result()

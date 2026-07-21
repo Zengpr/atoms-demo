@@ -93,7 +93,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         )}
 
         {streamText && (
-          <div className="mb-2 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+          <div className="mb-2 text-sm text-zinc-300 leading-relaxed">
             {streamText}
             <span className="inline-block w-1.5 h-4 bg-atoms-accent animate-pulse ml-0.5 align-middle" />
           </div>
