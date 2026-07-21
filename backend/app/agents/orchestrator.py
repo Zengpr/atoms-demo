@@ -219,14 +219,13 @@ class Orchestrator:
                             if not code_started:
                                 lower = full_text.lower()
                                 html_idx = -1
-                                for marker in ["<!doctype", "<html"]:
+                                for marker in ["<!doctype", "<html", "```html", "```htm"]:
                                     idx = lower.find(marker)
                                     if idx != -1 and (html_idx == -1 or idx < html_idx):
                                         html_idx = idx
                                 if html_idx != -1:
                                     code_started = True
                                     text_part = full_text[:html_idx].strip()
-                                    text_part = re.sub(r'```.*?$', '', text_part, flags=re.DOTALL).strip()
                                     if text_part:
                                         words = text_part.split(" ")
                                         for i, w in enumerate(words):
@@ -239,8 +238,6 @@ class Orchestrator:
                                         "event": "agent_action",
                                         "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Writing code..."},
                                     }
-                                else:
-                                    pass
                             act_task = asyncio.create_task(gen.__anext__())
                             pending.add(act_task)
                         except StopAsyncIteration:
