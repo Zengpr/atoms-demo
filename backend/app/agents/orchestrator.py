@@ -192,12 +192,24 @@ class Orchestrator:
 
         full_text = ""
         code_started = False
+        text_buffer = ""
         gen = engineer.act_stream(task, context)
         hb = _heartbeat(engineer.name, engineer.avatar_emoji, "Connecting to AI model...")
         act_task = asyncio.create_task(gen.__anext__())
         hb_task = asyncio.create_task(hb.__anext__())
         pending = {act_task, hb_task}
         first_token = True
+
+        CODE_MARKERS = ["<!doctype", "<html", "```html", "```htm"]
+
+        def _find_code_start(text: str) -> int:
+            lower = text.lower()
+            idx = -1
+            for marker in CODE_MARKERS:
+                pos = lower.find(marker)
+                if pos != -1 and (idx == -1 or pos < idx):
+                    idx = pos
+            return idx
 
         try:
             while pending:
@@ -217,23 +229,19 @@ class Orchestrator:
                             full_text += chunk
 
                             if not code_started:
-                                lower = full_text.lower()
-                                html_idx = -1
-                                for marker in ["<!doctype", "<html", "```html", "```htm"]:
-                                    idx = lower.find(marker)
-                                    if idx != -1 and (html_idx == -1 or idx < html_idx):
-                                        html_idx = idx
-                                if html_idx != -1:
+                                code_idx = _find_code_start(full_text)
+                                if code_idx != -1:
                                     code_started = True
-                                    text_part = full_text[:html_idx].strip()
-                                    if text_part:
-                                        words = text_part.split(" ")
+                                    text_buffer = full_text[:code_idx].strip()
+                                    text_buffer = re.sub(r'```.*?$', '', text_buffer, flags=re.DOTALL).strip()
+                                    if text_buffer:
+                                        words = text_buffer.split(" ")
                                         for i, w in enumerate(words):
                                             yield {
                                                 "event": "agent_stream",
                                                 "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": w + (" " if i < len(words) - 1 else "")},
                                             }
-                                            await asyncio.sleep(0.03)
+                                            await asyncio.sleep(0.04)
                                     yield {
                                         "event": "agent_action",
                                         "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Writing code..."},
@@ -266,10 +274,13 @@ class Orchestrator:
         if not code_started:
             text_only = re.sub(r'```.*?```', '', full_text, flags=re.DOTALL).strip()
             if text_only:
-                yield {
-                    "event": "agent_stream",
-                    "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": text_only},
-                }
+                words = text_only.split(" ")
+                for i, w in enumerate(words):
+                    yield {
+                        "event": "agent_stream",
+                        "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": w + (" " if i < len(words) - 1 else "")},
+                    }
+                    await asyncio.sleep(0.04)
 
         duration = int((time.time() - start) * 1000)
 
