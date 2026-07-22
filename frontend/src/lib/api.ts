@@ -15,7 +15,7 @@ function cleanUrl(url: string): string {
   return cleaned;
 }
 const API_BASE = cleanUrl(process.env.NEXT_PUBLIC_API_URL || "");
-const SSE_BASE = cleanUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
+const SSE_BASE = API_BASE || FALLBACK_API;
 
 class ApiError extends Error {
   status: number;
