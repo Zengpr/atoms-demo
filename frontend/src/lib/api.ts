@@ -33,14 +33,15 @@ function getToken(): string | null {
 
 async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  skipAuth: boolean = false
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) {
+  if (token && !skipAuth) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
@@ -60,7 +61,7 @@ async function apiFetch<T>(
         message = body.length > 200 ? body.substring(0, 200) + "..." : body;
       }
     }
-    if (res.status === 401) {
+    if (res.status === 401 && !skipAuth) {
       localStorage.removeItem("atoms_token");
       message = "Invalid token";
     }
@@ -83,7 +84,7 @@ export const authApi = {
     return apiFetch("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, username, password }),
-    });
+    }, true);
   },
 
   login(
@@ -93,7 +94,7 @@ export const authApi = {
     return apiFetch("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    });
+    }, true);
   },
 
   getMe(): Promise<User> {
