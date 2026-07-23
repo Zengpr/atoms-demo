@@ -243,7 +243,7 @@ window.addEventListener('unhandledrejection',function(e){
                       key={refreshKey}
                       srcDoc={iframeSrcDoc}
                       className="h-full w-full border-0"
-                      sandbox="allow-scripts allow-same-origin"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-popups-without-user-activation"
                       title="Preview"
                     />
                   </div>

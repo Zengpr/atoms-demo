@@ -114,6 +114,14 @@ class EngineerAgent(BaseAgent):
             "7. Use modern CSS (Grid, Flexbox, custom properties) with beautiful, polished UI\n"
             "8. Responsive design for all screen sizes\n"
             "9. Must render correctly in an iframe\n"
+            "10. For games with canvas: the canvas MUST be BELOW any HTML overlay/buttons (use z-index). "
+            "Start screen and game-over screen MUST be HTML elements on top of canvas, NOT drawn on canvas. "
+            "Buttons must use real <button> tags with click handlers. "
+            "Do NOT rely on canvas click detection for menu buttons.\n"
+            "11. For games: use document.addEventListener for keyboard input (NOT window.addEventListener) "
+            "to ensure iframe compatibility. Attach key listeners to document, not window.\n"
+            "12. For games: add tabindex='0' to the game container div and focus it on start, "
+            "so keyboard events work inside iframe.\n"
         )
         return prompt
 
@@ -155,7 +163,11 @@ class EngineerAgent(BaseAgent):
             "CRITICAL:\n"
             "- Games MUST have: complete game loop (start→play→end), scoring, controls, win/lose, restart\n"
             "- Games: add window.onerror handler that alerts the error so bugs are visible\n"
-            "- Games: the start/play button MUST be a real <button> element, NOT canvas-only click detection\n"
+            "- Games: the start/play button MUST be a real <button> element with click handler, NOT canvas click detection\n"
+            "- Games: start screen and game-over screen MUST be HTML overlays with z-index ABOVE canvas\n"
+            "- Games: canvas must have position:absolute and lower z-index than overlay screens\n"
+            "- Games: use document.addEventListener for key events (NOT window.addEventListener) for iframe compat\n"
+            "- Games: add tabindex='0' to game container and call .focus() on start so keyboard works in iframe\n"
             "- Games: initialize ALL game objects (player, enemies, etc.) at declaration time, not just in loadLevel()\n"
             "- Calculators MUST: handle all inputs, real-time display updates, edge cases\n"
             "- ALL interactive elements MUST work — no broken handlers, no undefined variables\n"
