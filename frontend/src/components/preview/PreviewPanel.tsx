@@ -54,7 +54,7 @@ interface PreviewPanelProps {
   deployMsg?: string;
 }
 
-export function PreviewPanel({ projectId, onDeploy, deploying, deployMsg }: PreviewPanelProps) {
+export function PreviewPanel({ onDeploy, deploying, deployMsg }: PreviewPanelProps) {
   const { previewHtml, consoleErrors, addConsoleError, clearConsoleErrors } = usePreviewStore();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -91,7 +91,7 @@ export function PreviewPanel({ projectId, onDeploy, deploying, deployMsg }: Prev
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [addConsoleError]);
 
   const iframeSrcDoc = useMemo(() => {
     if (!previewHtml) return undefined;
@@ -104,7 +104,7 @@ window.addEventListener('unhandledrejection',function(e){
 });
 </script>`;
     return previewHtml.replace("<head>", "<head>" + errorCatch);
-  }, [previewHtml, refreshKey]);
+  }, [previewHtml]);
 
   return (
     <div className="flex h-full flex-col">
@@ -278,7 +278,7 @@ window.addEventListener('unhandledrejection',function(e){
                 </span>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setConsoleErrors([])}
+                    onClick={() => clearConsoleErrors()}
                     className="text-xs text-zinc-500 hover:text-zinc-300 px-1"
                   >
                     Clear

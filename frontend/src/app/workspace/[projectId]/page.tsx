@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+
 import {
   Sparkles,
   ArrowLeft,
@@ -33,7 +33,7 @@ export default function WorkspacePage() {
   const router = useRouter();
   const projectId = params.projectId as string;
 
-  const { selectProject, currentProject } = useProjectStore();
+  const { selectProject } = useProjectStore();
   const { messages, clearMessages, loadHistory, currentMode } = useChatStore();
   const { setPreviewHtml } = usePreviewStore();
 
@@ -212,7 +212,7 @@ export default function WorkspacePage() {
             <span className="text-xs text-atoms-accent">{deployMsg}</span>
           )}
         </div>
-        <PreviewPanel projectId={projectId} onDeploy={handleDeploy} deploying={deploying} deployMsg={deployMsg} />
+        <PreviewPanel onDeploy={handleDeploy} deploying={deploying} deployMsg={deployMsg} />
       </div>
 
       {/* Right Panel - Editor/Workflow/Settings */}

@@ -144,7 +144,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         setStreaming(false);
       }
     },
-    [projectId, addMessage, updateLastAgentMessage, setStreaming, setPreviewHtml, currentMode]
+    [projectId, addMessage, updateLastAgentMessage, setStreaming, setPreviewHtml, currentMode, clearConsoleErrors, consoleErrors]
   );
 
   return (

@@ -35,6 +35,7 @@ async def send_message(
         mode = data.mode
         project.mode = mode
         await db.commit()
+    await db.close()
 
     async def event_stream():
         async with async_session() as stream_db:

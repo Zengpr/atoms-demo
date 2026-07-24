@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+
 import Editor from "@monaco-editor/react";
 import { usePreviewStore } from "@/lib/store";
 

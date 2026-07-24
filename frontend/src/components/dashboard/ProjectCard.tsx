@@ -3,7 +3,6 @@
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/Badge";
-import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 import { useRouter } from "next/navigation";
 
@@ -32,6 +31,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
     >
       <div className="mb-3 h-32 rounded-lg bg-atoms-dark/80 flex items-center justify-center overflow-hidden">
         {project.thumbnail ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={project.thumbnail}
             alt={project.name}

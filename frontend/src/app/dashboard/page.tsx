@@ -8,7 +8,6 @@ import {
   Plus,
   LogOut,
   LayoutDashboard,
-  Rocket,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
@@ -42,8 +41,7 @@ const TEMPLATES = [
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, logout, loadUser } = useAuthStore();
-  const { projects, currentProject, loadProjects, createProject, selectProject } =
-    useProjectStore();
+  const { projects, loadProjects, createProject } = useProjectStore();
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectMode, setNewProjectMode] = useState<ChatMode>("team");
