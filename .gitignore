@@ -39,3 +39,6 @@ test_team.py
 # Data
 data/
 backend/data/
+
+# Local Netlify folder
+.netlify

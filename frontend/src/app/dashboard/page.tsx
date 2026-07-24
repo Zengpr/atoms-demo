@@ -204,64 +204,54 @@ export default function DashboardPage() {
 
       {/* Main */}
       <main className="flex-1 overflow-y-auto">
-        {!currentProject ? (
-          <div className="px-8 py-10">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <div className="flex items-center gap-3 mb-8">
-                <LayoutDashboard className="h-8 w-8 text-atoms-accent" />
-                <div>
-                  <h1 className="text-2xl font-bold text-white">
-                    Welcome back, {user?.username}
-                  </h1>
-                  <p className="text-zinc-400">
-                    Start a new project or continue working on an existing one
-                  </p>
-                </div>
+        <div className="px-8 py-10">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="flex items-center gap-3 mb-8">
+              <LayoutDashboard className="h-8 w-8 text-atoms-accent" />
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Welcome back, {user?.username}
+                </h1>
+                <p className="text-zinc-400">
+                  Start a new project or continue working on an existing one
+                </p>
               </div>
+            </div>
 
-              {/* Templates */}
-              <div className="mb-10">
+            <div className="mb-10">
+              <h2 className="text-lg font-semibold text-zinc-200 mb-4">
+                Start from a template
+              </h2>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {TEMPLATES.map((t) => (
+                  <TemplateCard
+                    key={t.name}
+                    icon={t.icon}
+                    name={t.name}
+                    description={t.description}
+                    onClick={() => handleCreateFromTemplate(t.name)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {projects.length > 0 && (
+              <div>
                 <h2 className="text-lg font-semibold text-zinc-200 mb-4">
-                  Start from a template
+                  Recent Projects
                 </h2>
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                  {TEMPLATES.map((t) => (
-                    <TemplateCard
-                      key={t.name}
-                      icon={t.icon}
-                      name={t.name}
-                      description={t.description}
-                      onClick={() => handleCreateFromTemplate(t.name)}
-                    />
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                  {projects.map((p) => (
+                    <ProjectCard key={p.id} project={p} />
                   ))}
                 </div>
               </div>
-
-              {/* Recent Projects */}
-              {projects.length > 0 && (
-                <div>
-                  <h2 className="text-lg font-semibold text-zinc-200 mb-4">
-                    Recent Projects
-                  </h2>
-                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-                    {projects.map((p) => (
-                      <ProjectCard key={p.id} project={p} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-zinc-400">
-              Select a project from the sidebar or create a new one
-            </p>
-          </div>
-        )}
+            )}
+          </motion.div>
+        </div>
       </main>
     </div>
   );
