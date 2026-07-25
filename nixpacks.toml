@@ -1,0 +1,5 @@
+[build]
+command = "cd frontend && npm install && npm run build"
+
+[start]
+command = "cd frontend && npx next start -p $PORT"
