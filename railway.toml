@@ -1,8 +1,0 @@
-[build]
-builder = "NIXPACKS"
-
-[build.env]
-ROOT_DIR = "frontend"
-
-[deploy]
-startCommand = "cd frontend && npx next start -p $PORT"
