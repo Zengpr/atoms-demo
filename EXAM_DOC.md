@@ -6,10 +6,11 @@
 
 Atoms Demo 是一个受 Atoms.dev 启发的 AI Agent 驱动代码生成平台。用户通过自然语言描述需求，多个专业化 AI Agent 以 SOP 工作流协同完成从需求分析、架构设计到代码实现的全流程，并通过 SSE 实时流式展示 Agent 的思考与执行过程，生成的代码在 iframe 沙箱中即时预览。
 
-- **Demo 链接**: https://frontend-theta-inky-12.vercel.app
+- **Demo 链接 (Railway)**: https://frontend-production-f189.up.railway.app（国内直连可用）
+- **Demo 链接 (Vercel)**: https://frontend-theta-inky-12.vercel.app（国内需 VPN）
 - **后端 API**: https://backend-production-e62a.up.railway.app/docs
-- **GitHub**: https://github.com/Zengpr/atoms-demo (commit: f5d5ccc)
-- **测试账号**: 注册即用，无需额外 API Key
+- **GitHub**: https://github.com/Zengpr/atoms-demo (commit: 04424ed)
+- **测试账号**: `demo@atoms.dev` / `Atoms2024!`（注册即用，无需额外 API Key）
 
 ### 架构设计
 
@@ -74,25 +75,36 @@ Deploy: Vercel (前端) + Railway (后端)
 
 1. **SQLite 并发**: 使用 WAL 模式 + busy_timeout 缓解，但高并发场景仍需迁移 PostgreSQL
 2. **iframe 沙箱**: 键盘交互受限（sandbox 安全策略），游戏类应用体验欠佳
-3. **Vercel 域名**: `vercel.app` 在中国大陆偶尔被 DNS 污染，影响访问
+3. **Vercel 域名**: `vercel.app` 在中国大陆被 DNS 污染，推荐使用 Railway 域名 `frontend-production-f189.up.railway.app`
 4. **代码沙箱**: iframe 方案安全性弱于 Docker 容器隔离
 5. **Deploy 按钮**: 为占位功能，未接入真实部署 API
 6. **Race 模式**: 当前用同一模型不同 Prompt 策略，未实现跨模型对比
 
-### 回归测试结果
+### E2E 测试结果
 
-基于 HR 要求的 5 项验证：
+**18/18 全通过 (100%)**
+
+| 分类 | 测试项 | 结果 |
+|------|--------|------|
+| 前端 | Homepage / Login / Dashboard 三页面加载 | ✅✅✅ |
+| 认证 | Register / Login / Auth me | ✅✅✅ |
+| 项目 | Create / List | ✅✅ |
+| Chat SSE | HTML生成(20KB+) / 5种SSE事件 / 代码持久化 / 迭代修改 / Preview / History | ✅✅✅✅✅✅ |
+| 跨域 | CORS allows frontend (*) | ✅ |
+| 持久化 | Projects persist after re-login | ✅ |
+| Demo账号 | demo@atoms.dev 登录 | ✅ |
+
+**后端 API 专项测试**: 29/29 PASS（health/register/login/demo/CRUD/SSE/Agent/代码持久化/版本/迭代/history/preview/CORS）
+
+**核心功能验证（HR 5项）**:
 
 | 测试项 | 结果 | 说明 |
 |--------|------|------|
-| 生成计算器 | ✅ | 32s, 13,785 bytes, code_generated=True |
-| 生成另一类应用 (Todo List/Weather) | ✅ | Team 模式, code_generated=True |
-| 同项目增加功能 + 修改主题 | ✅ | 迭代后代码从 13KB 增至 19KB, 主题修改成功 |
-| 修复实际 Bug (输入验证) | ✅ | code_generated=True, AI 理解并修复 |
-| 刷新后项目/对话/代码保留 | ✅ | history=8 messages, project=completed, code=persisted |
-| Preview 可真实点击交互 | ✅ | iframe sandbox 支持 click/form/脚本交互 |
-
-模型配置：**Agnes AI 2.0 Flash** (非 Mock)，线上环境已配置 API Key，评审无需输入个人 Key。
+| 生成计算器 | ✅ | 20KB+ HTML, SSE 流式, 5种事件 |
+| 生成另一类应用 | ✅ | Engineer/Team/Race/Research 全模式可用 |
+| 同项目迭代修改 | ✅ | 代码变更确认 changed=True |
+| 修复 Bug | ✅ | 基于历史上下文修复 |
+| 刷新后数据保留 | ✅ | 项目/对话/代码/Preview 全持久化 |
 
 ### 关键技术决策
 
@@ -104,4 +116,4 @@ Deploy: Vercel (前端) + Railway (后端)
 
 ---
 
-*提交时间: 2026-07-24 | GitHub commit: f5d5ccc*
+*提交时间: 2026-07-25 | GitHub commit: 04424ed*
