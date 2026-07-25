@@ -1,6 +1,6 @@
 import type { User, Project, Message, CreateProjectData, ChatMode, Template } from "./types";
 
-const FALLBACK_API = "https://backend-production-e62a.up.railway.app";
+const FALLBACK_API = "https://backend-api-production-8923.up.railway.app";
 function cleanUrl(url: string): string {
   let cleaned = url;
   for (const ch of ["\uFEFF", "\u200B", "\\uFEFF", "\\u200B"]) {
