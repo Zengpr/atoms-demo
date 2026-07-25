@@ -6,10 +6,10 @@
 
 Atoms Demo 是一个受 Atoms.dev 启发的 AI Agent 驱动代码生成平台。用户通过自然语言描述需求，多个专业化 AI Agent 以 SOP 工作流协同完成从需求分析、架构设计到代码实现的全流程，并通过 SSE 实时流式展示 Agent 的思考与执行过程，生成的代码在 iframe 沙箱中即时预览。
 
-- **Demo 链接 (Railway)**: https://frontend-production-f189.up.railway.app（国内直连可用）
+- **Demo 链接 (Railway)**: https://frontend-production-e558.up.railway.app（国内直连可用）
 - **Demo 链接 (Vercel)**: https://frontend-theta-inky-12.vercel.app（国内需 VPN）
 - **后端 API**: https://backend-api-production-8923.up.railway.app/docs
-- **GitHub**: https://github.com/Zengpr/atoms-demo (commit: e514d07)
+- **GitHub**: https://github.com/Zengpr/atoms-demo (commit: df9158a)
 - **测试账号**: `demo@atoms.dev` / `Atoms2024!`（注册即用，无需额外 API Key）
 
 ### 架构设计
