@@ -201,7 +201,7 @@ class EngineerAgent(BaseAgent):
         if llm_provider.is_mock:
             return self._mock_iterate(task, context.get("previous_code", ""), context.get("is_iteration", False))
         result = await llm_provider.generate(self.get_system_prompt(), prompt, temperature=0.4)
-        code = self._extract_html(result)
+        code = extract_html(result)
         return code
 
     def _mock_iterate(self, task: str, prev_code: str, is_iteration: bool) -> str:
@@ -298,4 +298,4 @@ class EngineerAgent(BaseAgent):
             return code.replace("</body>", form_html + "</body>")
         return code + form_html
 
-from app.agents.orchestrator import _extract_html
+from app.utils.html_utils import extract_html

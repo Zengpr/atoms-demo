@@ -12,6 +12,7 @@ from app.agents.pm import PMAgent
 from app.agents.architect import ArchitectAgent
 from app.agents.engineer import EngineerAgent
 from app.agents.researcher import ResearcherAgent
+from app.utils.html_utils import extract_html
 from app.utils.llm import llm_provider
 
 
@@ -169,22 +170,7 @@ async def _collect_code_with_heartbeat(
 
 
 def _extract_html(text: str) -> str:
-    fence_match = re.search(r"```html\s*\n(.*?)```", text, re.DOTALL)
-    if fence_match:
-        return fence_match.group(1).strip()
-    fence_match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
-    if fence_match:
-        content = fence_match.group(1).strip()
-        if content.lower().startswith("<!doctype") or content.lower().startswith("<html"):
-            return content
-    if text.strip().lower().startswith("<!doctype") or text.strip().lower().startswith("<html"):
-        return text.strip()
-    html_start = text.find("<!DOCTYPE")
-    if html_start == -1:
-        html_start = text.find("<html")
-    if html_start != -1:
-        return text[html_start:].strip()
-    return text.strip()
+    return extract_html(text)
 
 
 class Orchestrator:
