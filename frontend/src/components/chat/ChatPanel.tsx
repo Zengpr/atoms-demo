@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useChatStore, usePreviewStore } from "@/lib/store";
 import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { streamChat } from "@/lib/api";
-import type { Message } from "@/lib/types";
+import type { Message, ApprovalRequest } from "@/lib/types";
 import { AGENTS } from "@/lib/agents";
 
 interface ChatPanelProps {
@@ -23,6 +23,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     useChatStore();
   const { setPreviewHtml, consoleErrors, clearConsoleErrors } = usePreviewStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -41,6 +42,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       };
       addMessage(userMsg);
       setStreaming(true);
+      setPendingApproval(null);
 
       const errorMessages = consoleErrors.map(
         (e) => `${e.message}${e.line ? ` (line ${e.line})` : ""}`
@@ -91,7 +93,36 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 plan: sse.data.plan,
                 prd: sse.data.prd,
                 architecture: sse.data.architecture,
+                steps: sse.data.steps,
                 duration_ms: sse.data.duration_ms,
+              },
+              createdAt: new Date().toISOString(),
+            });
+          } else if (sse.event === "approval_request") {
+            lastThinkingId = null;
+            const approval: ApprovalRequest = {
+              agent: (sse.data.agent as string) ?? "System",
+              emoji: (sse.data.emoji as string) ?? "👨‍💼",
+              step: (sse.data.step as number) ?? 0,
+              totalSteps: (sse.data.total_steps as number) ?? 0,
+              agentName: (sse.data.agent_name as string) ?? "Agent",
+              agentKey: (sse.data.agent_key as string) ?? "",
+              task: (sse.data.task as string) ?? "",
+              message: (sse.data.message as string) ?? "Continue?",
+            };
+            setPendingApproval(approval);
+            addMessage({
+              id: crypto.randomUUID(),
+              conversationId: projectId,
+              role: "agent",
+              agentName: approval.agent,
+              content: approval.message,
+              metadata: {
+                approval: true,
+                emoji: approval.emoji,
+                step: approval.step,
+                totalSteps: approval.totalSteps,
+                agentName: approval.agentName,
               },
               createdAt: new Date().toISOString(),
             });
@@ -103,6 +134,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           } else if (sse.event === "message_complete") {
             lastThinkingId = null;
             receivedComplete = true;
+            setPendingApproval(null);
             const message = (sse.data.message as string) ?? "";
             const completeAgentName = (sse.data.agent as string) ?? "System";
             addMessage({
@@ -147,6 +179,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     [projectId, addMessage, updateLastAgentMessage, setStreaming, setPreviewHtml, currentMode, clearConsoleErrors, consoleErrors]
   );
 
+  const handleApprovalContinue = useCallback(() => {
+    setPendingApproval(null);
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       <div
@@ -158,7 +194,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             <MessageBubble key={msg.id} message={msg} onSuggestionClick={handleSend} />
           ))}
         </AnimatePresence>
-        {isStreaming && (
+        {isStreaming && !pendingApproval && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -172,6 +208,29 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             <span className="text-xs text-zinc-500">
               Agents are working...
             </span>
+          </motion.div>
+        )}
+        {pendingApproval && isStreaming && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 my-2 rounded-xl border border-atoms-accent/30 bg-atoms-accent/5 p-3"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">{pendingApproval.emoji}</span>
+              <span className="text-sm font-medium text-zinc-200">
+                {pendingApproval.agent} — Step {pendingApproval.step}/{pendingApproval.totalSteps}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mb-3">{pendingApproval.message}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleApprovalContinue}
+                className="flex-1 rounded-lg bg-atoms-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-atoms-accent-hover transition-colors"
+              >
+                Continue
+              </button>
+            </div>
           </motion.div>
         )}
         {messages.length === 0 && !isStreaming && (

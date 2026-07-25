@@ -37,7 +37,7 @@ class EngineerAgent(BaseAgent):
         if is_iteration:
             prompt = "[ITERATION MODE] The user wants to modify an existing application.\n\n"
             if prev_code:
-                prompt += f"Current application code (truncated):\n```\n{prev_code[:3000]}\n```\n\n"
+                prompt += f"Current application code:\n```\n{prev_code}\n```\n\n"
             if history:
                 prompt += "Recent conversation:\n" + "\n".join(history[-6:]) + "\n\n"
             prompt += (
@@ -93,7 +93,6 @@ class EngineerAgent(BaseAgent):
                 f"Analysis:\n{analysis}\n\n"
                 f"Design:\n{design}\n\n"
                 f"Current code:\n{prev_code}\n\n"
-                f"Apply ALL the designed changes. Output the COMPLETE modified HTML file.\n\n"
             )
         else:
             prompt = (
@@ -131,6 +130,8 @@ class EngineerAgent(BaseAgent):
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
         prev_code = context.get("previous_code", "")
         is_iteration = context.get("is_iteration", False)
+        prd = context.get("prd", "")
+        architecture = context.get("architecture", "")
         history = context.get("conversation_history", [])
 
         if is_iteration and prev_code:
@@ -141,9 +142,17 @@ class EngineerAgent(BaseAgent):
             )
             if history:
                 prompt += "Conversation:\n" + "\n".join(history[-6:]) + "\n\n"
+            if prd:
+                prompt += f"Product Requirements (from PM):\n{prd[:2000]}\n\n"
+            if architecture:
+                prompt += f"Architecture (from Architect):\n{architecture[:2000]}\n\n"
             prompt += "First output your analysis of what needs to change and any bugs to fix. Then output the COMPLETE modified HTML file.\n\n"
         else:
             prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
+            if prd:
+                prompt += f"Product Requirements (from PM):\n{prd[:2000]}\n\n"
+            if architecture:
+                prompt += f"Architecture (from Architect):\n{architecture[:2000]}\n\n"
 
         console_errors = context.get("console_errors", [])
         error_section = ""
@@ -289,21 +298,4 @@ class EngineerAgent(BaseAgent):
             return code.replace("</body>", form_html + "</body>")
         return code + form_html
 
-    @staticmethod
-    def _extract_html(text: str) -> str:
-        fence_match = re.search(r"```html\s*\n(.*?)```", text, re.DOTALL)
-        if fence_match:
-            return fence_match.group(1).strip()
-        fence_match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
-        if fence_match:
-            content = fence_match.group(1).strip()
-            if content.lower().startswith("<!doctype") or content.lower().startswith("<html"):
-                return content
-        if text.strip().lower().startswith("<!doctype") or text.strip().lower().startswith("<html"):
-            return text.strip()
-        html_start = text.find("<!DOCTYPE")
-        if html_start == -1:
-            html_start = text.find("<html")
-        if html_start != -1:
-            return text[html_start:].strip()
-        return text.strip()
+from app.agents.orchestrator import _extract_html

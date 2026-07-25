@@ -95,7 +95,7 @@ async def process_chat(
         "mode": mode,
         "project_name": project_id,
         "conversation_history": history_lines,
-        "previous_code": last_code,
+        "previous_code": last_code or "",
         "is_iteration": len(prev_messages) > 1,
         "console_errors": console_errors or [],
     }
@@ -120,6 +120,9 @@ async def process_chat(
             )
             yield event
 
+        elif event["event"] == "approval_request":
+            yield event
+
         elif event["event"] == "code_generated":
             data = event["data"]
             accumulated_code = data.get("code", "")
@@ -140,9 +143,7 @@ async def process_chat(
 
             if accumulated_code:
                 await save_code_version(db, project_id, accumulated_code)
-                from app.models.project import Project
-                from sqlalchemy import select as sa_select
-                result = await db.execute(sa_select(Project).where(Project.id == project_id))
+                result = await db.execute(select(Project).where(Project.id == project_id))
                 proj = result.scalars().first()
                 if proj:
                     proj.status = "completed"

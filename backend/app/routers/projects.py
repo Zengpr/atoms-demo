@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import User
@@ -77,3 +78,37 @@ async def get_latest_code(project_id: str, user: User = Depends(get_current_user
     from app.services.chat_service import _get_latest_code
     code = await _get_latest_code(db, project_id)
     return {"code": code}
+
+
+@router.post("/{project_id}/versions/{version_id}/restore")
+async def restore_version(
+    project_id: str,
+    version_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    project = await get_project(db, project_id)
+    if not project or project.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    from app.services.project_service import save_code_version, get_project_versions
+    from app.models.code_version import CodeVersion
+    result = await db.execute(select(CodeVersion).where(CodeVersion.id == version_id))
+    version = result.scalars().first()
+    if not version or version.project_id != project_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+    new_version = await save_code_version(db, project_id, version.code_full or "")
+    return {"status": "restored", "new_version": new_version.version}
+
+
+@router.get("/templates/list")
+async def list_templates():
+    return [
+        {"id": "landing", "name": "Landing Page", "icon": "🏠", "description": "A beautiful, conversion-optimized landing page", "mode": "team"},
+        {"id": "dashboard", "name": "Dashboard", "icon": "📊", "description": "Data dashboard with charts and metrics", "mode": "team"},
+        {"id": "ecommerce", "name": "E-commerce", "icon": "🛒", "description": "Online store with product catalog and cart", "mode": "team"},
+        {"id": "portfolio", "name": "Portfolio", "icon": "🎨", "description": "Creative portfolio showcasing your work", "mode": "engineer"},
+        {"id": "calculator", "name": "Calculator", "icon": "🧮", "description": "Functional calculator with operations", "mode": "engineer"},
+        {"id": "todo", "name": "Todo App", "icon": "📝", "description": "Task management with categories", "mode": "engineer"},
+        {"id": "game-2048", "name": "2048 Game", "icon": "🎮", "description": "Classic 2048 puzzle game", "mode": "engineer"},
+        {"id": "snake", "name": "Snake Game", "icon": "🐍", "description": "Classic snake arcade game", "mode": "engineer"},
+    ]

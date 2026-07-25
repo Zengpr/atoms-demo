@@ -13,30 +13,8 @@ import { Button } from "@/components/ui/Button";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { TemplateCard } from "@/components/dashboard/TemplateCard";
 import { useAuthStore, useProjectStore } from "@/lib/store";
-import type { CreateProjectData, ChatMode } from "@/lib/types";
-
-const TEMPLATES = [
-  {
-    icon: "\u{1F3E0}",
-    name: "Landing Page",
-    description: "A beautiful, conversion-optimized landing page",
-  },
-  {
-    icon: "\u{1F4CA}",
-    name: "Dashboard",
-    description: "Data dashboard with charts and metrics",
-  },
-  {
-    icon: "\u{1F6D2}",
-    name: "E-commerce",
-    description: "Online store with product catalog and cart",
-  },
-  {
-    icon: "\u{1F3A8}",
-    name: "Portfolio",
-    description: "Creative portfolio showcasing your work",
-  },
-];
+import type { CreateProjectData, ChatMode, Template } from "@/lib/types";
+import { projectApi } from "@/lib/api";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -46,6 +24,8 @@ export default function DashboardPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectMode, setNewProjectMode] = useState<ChatMode>("team");
   const [loading, setLoading] = useState(true);
+
+  const [templates, setTemplates] = useState<Template[]>([]);
 
   useEffect(() => {
     loadUser().finally(() => setLoading(false));
@@ -57,12 +37,16 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, loadProjects]);
 
-  const handleCreateFromTemplate = async (templateName: string) => {
+  useEffect(() => {
+    projectApi.getTemplates().then(setTemplates).catch(() => {});
+  }, []);
+
+  const handleCreateFromTemplate = async (template: Template) => {
     const data: CreateProjectData = {
-      name: templateName,
-      description: `A ${templateName.toLowerCase()} built with Atoms AI`,
-      mode: "team",
-      template: templateName.toLowerCase().replace(/\s+/g, "-"),
+      name: template.name,
+      description: template.description,
+      mode: template.mode as ChatMode,
+      template: template.id,
     };
     const project = await createProject(data);
     router.push(`/workspace/${project.id}`);
@@ -145,7 +129,7 @@ export default function DashboardPage() {
               autoFocus
             />
             <div className="grid grid-cols-2 gap-2">
-              {(["engineer", "team", "race", "research"] as const).map((m) => (
+              {(["engineer", "team", "race", "research", "review"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -156,7 +140,7 @@ export default function DashboardPage() {
                       : "bg-atoms-dark text-zinc-400 border border-atoms-border"
                   }`}
                 >
-                  {m === "engineer" ? "Engineer" : m === "team" ? "Team" : m === "race" ? "Race" : "Research"}
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
                 </button>
               ))}
             </div>
@@ -226,13 +210,13 @@ export default function DashboardPage() {
                 Start from a template
               </h2>
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {TEMPLATES.map((t) => (
+                {templates.map((t) => (
                   <TemplateCard
-                    key={t.name}
+                    key={t.id}
                     icon={t.icon}
                     name={t.name}
                     description={t.description}
-                    onClick={() => handleCreateFromTemplate(t.name)}
+                    onClick={() => handleCreateFromTemplate(t)}
                   />
                 ))}
               </div>

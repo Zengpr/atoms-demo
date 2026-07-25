@@ -1,4 +1,4 @@
-import type { User, Project, Message, CreateProjectData, ChatMode } from "./types";
+import type { User, Project, Message, CreateProjectData, ChatMode, Template } from "./types";
 
 const FALLBACK_API = "https://backend-production-e62a.up.railway.app";
 function cleanUrl(url: string): string {
@@ -139,6 +139,22 @@ export const projectApi = {
   getLatestCode(id: string): Promise<{ code: string | null }> {
     return apiFetch(`/api/projects/${id}/latest-code`);
   },
+
+  restoreVersion(projectId: string, versionId: string): Promise<{ status: string; new_version: number }> {
+    return apiFetch(`/api/projects/${projectId}/versions/${versionId}/restore`, {
+      method: "POST",
+    });
+  },
+
+  getTemplates(): Promise<Template[]> {
+    return apiFetch("/api/projects/templates/list", {}, true);
+  },
+
+  deploy(projectId: string): Promise<{ status: string; url: string; page_id: string }> {
+    return apiFetch(`/api/preview/${projectId}/deploy`, {
+      method: "POST",
+    });
+  },
 };
 
 export interface SSEMessage {
@@ -216,6 +232,9 @@ export const chatApi = {
 export const previewApi = {
   getPreviewUrl(projectId: string): string {
     return `${SSE_BASE}/api/preview/${projectId}/html`;
+  },
+  getPublicUrl(pageId: string): string {
+    return `${SSE_BASE}/api/preview/public/${pageId}`;
   },
 };
 

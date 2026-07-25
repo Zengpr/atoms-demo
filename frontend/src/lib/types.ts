@@ -1,4 +1,4 @@
-export type ChatMode = "engineer" | "team" | "race" | "research";
+export type ChatMode = "engineer" | "team" | "race" | "research" | "review";
 
 export interface User {
   id: string;
@@ -50,7 +50,7 @@ export interface AgentInfo {
 }
 
 export interface SSEEvent {
-  type: "agent_thinking" | "agent_action" | "code_generated" | "message_complete";
+  type: "agent_thinking" | "agent_action" | "approval_request" | "code_generated" | "message_complete";
   data: Record<string, unknown>;
 }
 
@@ -59,4 +59,23 @@ export interface CreateProjectData {
   description: string;
   mode: ChatMode;
   template?: string;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  mode: ChatMode;
+}
+
+export interface ApprovalRequest {
+  agent: string;
+  emoji: string;
+  step: number;
+  totalSteps: number;
+  agentName: string;
+  agentKey: string;
+  task: string;
+  message: string;
 }

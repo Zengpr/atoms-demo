@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -16,6 +16,10 @@ import {
   Trash2,
   Save,
   Rocket,
+  History,
+  RotateCcw,
+  ExternalLink,
+  CheckCircle,
 } from "lucide-react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { PreviewPanel } from "@/components/preview/PreviewPanel";
@@ -23,10 +27,10 @@ import { CodeEditor } from "@/components/editor/CodeEditor";
 import { WorkflowPanel } from "@/components/editor/WorkflowPanel";
 import { useProjectStore, useChatStore, usePreviewStore, useAuthStore } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
-import type { Project, ChatMode } from "@/lib/types";
-import { projectApi } from "@/lib/api";
+import type { Project, ChatMode, CodeVersion } from "@/lib/types";
+import { projectApi, previewApi } from "@/lib/api";
 
-type RightTab = "code" | "workflow" | "settings";
+type RightTab = "code" | "workflow" | "versions" | "settings";
 
 export default function WorkspacePage() {
   const params = useParams();
@@ -49,7 +53,10 @@ export default function WorkspacePage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  const [deployUrl, setDeployUrl] = useState("");
   const [deployMsg, setDeployMsg] = useState("");
+  const [versions, setVersions] = useState<CodeVersion[]>([]);
+  const [restoring, setRestoring] = useState("");
   const { token } = useAuthStore();
 
   useEffect(() => {
@@ -66,6 +73,10 @@ export default function WorkspacePage() {
           const { code } = await projectApi.getLatestCode(projectId);
           if (code) setPreviewHtml(code);
         } catch {}
+        try {
+          const v = await projectApi.getVersions(projectId);
+          setVersions(v);
+        } catch {}
       } catch (e: unknown) {
         const errMsg = e instanceof Error ? e.message : "Failed to load project";
         if (errMsg.includes("Invalid token") || errMsg.includes("Not authenticated") || errMsg.includes("401")) {
@@ -81,6 +92,13 @@ export default function WorkspacePage() {
     load();
     return () => clearMessages();
   }, [projectId, selectProject, loadHistory, clearMessages, router, setPreviewHtml]);
+
+  const refreshVersions = useCallback(async () => {
+    try {
+      const v = await projectApi.getVersions(projectId);
+      setVersions(v);
+    } catch {}
+  }, [projectId]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -111,18 +129,34 @@ export default function WorkspacePage() {
   const handleDeploy = async () => {
     setDeploying(true);
     setDeployMsg("");
+    setDeployUrl("");
     try {
-      await fetch(`/api/preview/${projectId}/deploy`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const result = await projectApi.deploy(projectId);
+      const fullUrl = previewApi.getPublicUrl(result.page_id);
+      setDeployUrl(fullUrl);
       setDeployMsg("Deployed!");
-      setTimeout(() => setDeployMsg(""), 3000);
     } catch {
-      setDeployMsg("Deploy failed");
+      setDeployMsg("Deploy failed — generate code first");
       setTimeout(() => setDeployMsg(""), 3000);
     } finally {
       setDeploying(false);
+    }
+  };
+
+  const handleRestore = async (versionId: string, versionNum: number) => {
+    setRestoring(versionId);
+    try {
+      await projectApi.restoreVersion(projectId, versionId);
+      const { code } = await projectApi.getLatestCode(projectId);
+      if (code) setPreviewHtml(code);
+      await refreshVersions();
+      setDeployMsg(`Restored to v${versionNum}`);
+      setTimeout(() => setDeployMsg(""), 3000);
+    } catch {
+      setDeployMsg("Restore failed");
+      setTimeout(() => setDeployMsg(""), 3000);
+    } finally {
+      setRestoring("");
     }
   };
 
@@ -199,7 +233,21 @@ export default function WorkspacePage() {
 
       {/* Center Panel - Preview */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center justify-end gap-2 border-b border-atoms-border bg-atoms-card px-3 py-1.5">
+        <div className="flex items-center justify-between gap-2 border-b border-atoms-border bg-atoms-card px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            {deployUrl && (
+              <a
+                href={deployUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                Live
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
           <button
             onClick={handleDeploy}
             disabled={deploying}
@@ -208,14 +256,16 @@ export default function WorkspacePage() {
             <Rocket className="h-3.5 w-3.5" />
             {deploying ? "Deploying..." : "Deploy"}
           </button>
-          {deployMsg && (
-            <span className="text-xs text-atoms-accent">{deployMsg}</span>
-          )}
         </div>
+        {deployMsg && !deployUrl && (
+          <div className="bg-atoms-accent/10 px-3 py-1 text-xs text-atoms-accent text-center">
+            {deployMsg}
+          </div>
+        )}
         <PreviewPanel onDeploy={handleDeploy} deploying={deploying} deployMsg={deployMsg} />
       </div>
 
-      {/* Right Panel - Editor/Workflow/Settings */}
+      {/* Right Panel - Editor/Workflow/Versions/Settings */}
       <div
         className={`flex flex-col border-l border-atoms-border transition-all duration-300 ${
           rightOpen ? "w-[30%] min-w-[320px]" : "w-12 min-w-[48px]"
@@ -224,18 +274,19 @@ export default function WorkspacePage() {
         {rightOpen ? (
           <>
             <div className="flex items-center justify-between border-b border-atoms-border px-2 py-1">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
                 {(
                   [
                     { id: "code" as const, icon: Code2, label: "Code" },
-                    { id: "workflow" as const, icon: Workflow, label: "Workflow" },
+                    { id: "workflow" as const, icon: Workflow, label: "Flow" },
+                    { id: "versions" as const, icon: History, label: "Versions" },
                     { id: "settings" as const, icon: Settings, label: "Settings" },
                   ] as const
                 ).map(({ id, icon: Icon, label }) => (
                   <button
                     key={id}
-                    onClick={() => setRightTab(id)}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    onClick={() => { setRightTab(id); if (id === "versions") refreshVersions(); }}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       rightTab === id
                         ? "bg-atoms-accent/20 text-atoms-accent-hover"
                         : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
@@ -257,8 +308,61 @@ export default function WorkspacePage() {
             <div className="flex-1 min-h-0">
               {rightTab === "code" && <CodeEditor />}
               {rightTab === "workflow" && <WorkflowPanel messages={messages} />}
+              {rightTab === "versions" && (
+                <div className="p-4 space-y-3 overflow-y-auto h-full">
+                  <h3 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    Version History
+                  </h3>
+                  {versions.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-8 text-center">
+                      No versions yet. Generate code to create your first version.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {versions.map((v, i) => (
+                        <div
+                          key={v.id}
+                          className={`rounded-lg border border-atoms-border bg-atoms-card p-3 ${
+                            i === 0 ? "border-atoms-accent/30" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-zinc-200">
+                                v{v.version}
+                              </span>
+                              {i === 0 && (
+                                <Badge variant="success">latest</Badge>
+                              )}
+                            </div>
+                            <span className="text-xs text-zinc-500">
+                              {v.codeFull ? `${(v.codeFull.length / 1024).toFixed(1)}KB` : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-zinc-500">
+                              {v.createdAt ? new Date(v.createdAt).toLocaleString() : ""}
+                            </span>
+                            {i !== 0 && (
+                              <button
+                                onClick={() => handleRestore(v.id, v.version)}
+                                disabled={restoring === v.id}
+                                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-atoms-accent hover:bg-atoms-accent/10 transition-colors disabled:opacity-50"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                {restoring === v.id ? "Restoring..." : "Restore"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {rightTab === "settings" && (
-                <div className="p-4 space-y-4">
+                <div className="p-4 space-y-4 overflow-y-auto h-full">
                   <h3 className="text-sm font-semibold text-zinc-200">
                     Project Settings
                   </h3>
@@ -298,6 +402,7 @@ export default function WorkspacePage() {
                         <option value="team">team</option>
                         <option value="race">race</option>
                         <option value="research">research</option>
+                        <option value="review">review</option>
                       </select>
                     </div>
                     <div>

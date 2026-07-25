@@ -111,92 +111,6 @@ async def _collect_stream(stream: AsyncIterator[dict[str, Any]]) -> str:
     return full
 
 
-async def _stream_phase(
-    agent: BaseAgent,
-    label: str,
-    thinking_msg: str,
-    waiting_msg: str,
-    stream_gen: AsyncIterator[str],
-) -> AsyncIterator[tuple[dict[str, Any], str]]:
-    full_text = ""
-    yield (
-        {
-            "event": "agent_thinking",
-            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "message": f"{agent.avatar_emoji} {agent.name} is {thinking_msg}..."},
-        },
-        "",
-    )
-    yield (
-        {
-            "event": "agent_action",
-            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": label},
-        },
-        "",
-    )
-
-    hb = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg)
-    gen_task = asyncio.create_task(stream_gen.__anext__())
-    hb_task = asyncio.create_task(hb.__anext__())
-    pending = {gen_task, hb_task}
-    first_token = True
-
-    try:
-        while pending:
-            done, pending_new = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-            pending = pending_new
-            for t in done:
-                if t is gen_task:
-                    try:
-                        chunk = t.result()
-                        if first_token:
-                            first_token = False
-                            hb_task.cancel()
-                            try:
-                                await hb_task
-                            except (asyncio.CancelledError, StopAsyncIteration):
-                                pass
-                        full_text += chunk
-                        clean = chunk.strip()
-                        if clean:
-                            yield (
-                                {
-                                    "event": "agent_stream",
-                                    "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "chunk": clean},
-                                },
-                                chunk,
-                            )
-                        gen_task = asyncio.create_task(stream_gen.__anext__())
-                        pending.add(gen_task)
-                    except StopAsyncIteration:
-                        pass
-                    except Exception as e:
-                        logger.error(f"Stream error ({label}): {e}")
-                elif t is hb_task:
-                    try:
-                        ev = t.result()
-                        yield (ev, "")
-                        hb_task = asyncio.create_task(hb.__anext__())
-                        pending.add(hb_task)
-                    except (StopAsyncIteration, asyncio.CancelledError):
-                        pass
-    finally:
-        gen_task.cancel()
-        hb_task.cancel()
-        for t in {gen_task, hb_task}:
-            try:
-                await t
-            except (asyncio.CancelledError, StopAsyncIteration, Exception):
-                pass
-
-    yield (
-        {
-            "event": "agent_action",
-            "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": f"{label} complete"},
-        },
-        "",
-    )
-
-
 async def _collect_code_with_heartbeat(
     agent: BaseAgent,
     task: str,
@@ -254,6 +168,25 @@ async def _collect_code_with_heartbeat(
     }
 
 
+def _extract_html(text: str) -> str:
+    fence_match = re.search(r"```html\s*\n(.*?)```", text, re.DOTALL)
+    if fence_match:
+        return fence_match.group(1).strip()
+    fence_match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
+    if fence_match:
+        content = fence_match.group(1).strip()
+        if content.lower().startswith("<!doctype") or content.lower().startswith("<html"):
+            return content
+    if text.strip().lower().startswith("<!doctype") or text.strip().lower().startswith("<html"):
+        return text.strip()
+    html_start = text.find("<!DOCTYPE")
+    if html_start == -1:
+        html_start = text.find("<html")
+    if html_start != -1:
+        return text[html_start:].strip()
+    return text.strip()
+
+
 class Orchestrator:
     def __init__(self):
         self.agents: dict[str, BaseAgent] = {
@@ -271,6 +204,15 @@ class Orchestrator:
         engineer = self.agents["engineer"]
         start = time.time()
 
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is working on your request..."},
+        }
+
+        act_prompt = engineer._build_act_prompt(task, context)
+        full_text = ""
+        code_started = False
+
         CODE_MARKERS = ["<!doctype", "<html", "```html", "```htm"]
 
         def _find_code_start(text: str) -> int:
@@ -281,15 +223,6 @@ class Orchestrator:
                 if pos != -1 and (idx == -1 or pos < idx):
                     idx = pos
             return idx
-
-        yield {
-            "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is working on your request..."},
-        }
-
-        act_prompt = engineer._build_act_prompt(task, context)
-        full_text = ""
-        code_started = False
 
         gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_system_prompt(), act_prompt, temperature=0.4, max_tokens=32768)
         hb = _heartbeat(engineer.name, engineer.avatar_emoji, "Connecting to AI model...")
@@ -357,7 +290,7 @@ class Orchestrator:
                 except (asyncio.CancelledError, StopAsyncIteration, Exception):
                     pass
 
-        code = self._extract_html(full_text)
+        code = _extract_html(full_text)
         if not code_started:
             text_only = re.sub(r'```.*?```', '', full_text, flags=re.DOTALL).strip()
             if text_only:
@@ -385,12 +318,117 @@ class Orchestrator:
             },
         }
 
+    async def _run_plan_step(
+        self,
+        step: dict[str, Any],
+        step_num: int,
+        total_steps: int,
+        task: str,
+        context: dict[str, Any],
+    ) -> AsyncIterator[dict[str, Any]]:
+        agent_key = step.get("agent", "engineer")
+        step_task = step.get("task", task)
+        agent = self.agents.get(agent_key, self.agents["engineer"])
+
+        yield {
+            "event": "agent_thinking",
+            "data": {
+                "agent": agent.name,
+                "emoji": agent.avatar_emoji,
+                "message": f"Step {step_num}/{total_steps}: {agent.avatar_emoji} {agent.name} — {step_task[:80]}",
+            },
+        }
+
+        if agent_key == "engineer":
+            code = ""
+            async for ev in _collect_code_with_heartbeat(agent, step_task, context):
+                if ev["event"] == "code_collected":
+                    code = ev["data"]["code"]
+                else:
+                    yield ev
+            code = _extract_html(code)
+            if code:
+                yield {
+                    "event": "code_generated",
+                    "data": {"agent": agent.name, "code": code},
+                }
+                context["previous_code"] = code
+        else:
+            full_text = ""
+            async for ev in _stream_llm_as_events(agent, "think_stream", step_task, context):
+                if ev["event"] == "agent_stream":
+                    full_text += ev["data"].get("chunk", "")
+                    yield ev
+                elif ev["event"] == "agent_stream_done":
+                    full_text = ev["data"]["full_text"]
+
+            output_data = full_text
+            try:
+                parsed = json.loads(full_text)
+                output_data = json.dumps(parsed, ensure_ascii=False)
+            except json.JSONDecodeError:
+                pass
+
+            if agent_key == "pm":
+                context["prd"] = output_data
+                try:
+                    prd_obj = json.loads(output_data)
+                    features = prd_obj.get("prd", {}).get("features", [])
+                    feat_names = ", ".join(f.get("name", "") for f in features[:3]) if features else ""
+                except:
+                    feat_names = ""
+                yield {
+                    "event": "agent_action",
+                    "data": {
+                        "agent": agent.name,
+                        "emoji": agent.avatar_emoji,
+                        "action": f"PRD created — {feat_names}" if feat_names else "PRD created",
+                        "prd": json.loads(output_data) if output_data.startswith("{") else None,
+                    },
+                }
+            elif agent_key == "architect":
+                context["architecture"] = output_data
+                yield {
+                    "event": "agent_action",
+                    "data": {
+                        "agent": agent.name,
+                        "emoji": agent.avatar_emoji,
+                        "action": "Architecture designed",
+                        "architecture": json.loads(output_data) if output_data.startswith("{") else None,
+                    },
+                }
+            elif agent_key == "researcher":
+                context["research"] = output_data
+                yield {
+                    "event": "agent_action",
+                    "data": {
+                        "agent": agent.name,
+                        "emoji": agent.avatar_emoji,
+                        "action": "Research complete",
+                    },
+                }
+            else:
+                yield {
+                    "event": "agent_action",
+                    "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": step_task[:100]},
+                }
+
+        yield {
+            "event": "approval_request",
+            "data": {
+                "agent": self.agents["leader"].name,
+                "emoji": self.agents["leader"].avatar_emoji,
+                "step": step_num,
+                "total_steps": total_steps,
+                "agent_name": agent.name,
+                "agent_key": agent_key,
+                "task": step_task,
+                "message": f"{agent.name} completed step {step_num}/{total_steps}. Continue to next step?",
+            },
+        }
+
     async def run_team_mode(self, task: str, context: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
         leader = self.agents["leader"]
-        pm = self.agents["pm"]
-        architect = self.agents["architect"]
-        engineer = self.agents["engineer"]
-
         enriched_context = dict(context)
         enriched_context["mode"] = "team"
         total_start = time.time()
@@ -414,6 +452,15 @@ class Orchestrator:
             plan_data = {"plan": leader_text[:200], "steps": [], "summary": "Executing full team pipeline"}
 
         plan_summary = plan_data.get("plan", leader_text[:200])
+        steps = plan_data.get("steps", [])
+
+        if not steps:
+            steps = [
+                {"agent": "pm", "task": f"Analyze requirements for: {task}"},
+                {"agent": "architect", "task": f"Design architecture for: {task}"},
+                {"agent": "engineer", "task": f"Implement: {task}"},
+            ]
+
         yield {
             "event": "agent_action",
             "data": {
@@ -421,103 +468,39 @@ class Orchestrator:
                 "emoji": leader.avatar_emoji,
                 "action": f"Team plan: {plan_summary}",
                 "plan": plan_data,
+                "steps": steps,
             },
         }
 
-        await _mock_delay()
-
         yield {
-            "event": "agent_thinking",
-            "data": {"agent": pm.name, "emoji": pm.avatar_emoji, "message": f"{pm.avatar_emoji} {pm.name} is analyzing requirements..."},
-        }
-
-        prd_text = ""
-        async for ev in _stream_llm_as_events(pm, "think_stream", task, enriched_context):
-            if ev["event"] == "agent_stream":
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                prd_text = ev["data"]["full_text"]
-
-        try:
-            prd_data = json.loads(prd_text)
-        except json.JSONDecodeError:
-            prd_data = {"prd": {"title": "Product Requirements", "overview": prd_text[:200]}}
-
-        enriched_context["prd"] = prd_text
-        prd_overview = prd_data.get("prd", {}).get("overview", prd_text[:200])
-        features = prd_data.get("prd", {}).get("features", [])
-        feature_names = ", ".join(f.get("name", "") for f in features[:3]) if features else ""
-
-        yield {
-            "event": "agent_action",
+            "event": "approval_request",
             "data": {
-                "agent": pm.name,
-                "emoji": pm.avatar_emoji,
-                "action": f"PRD created — {feature_names}" if feature_names else "PRD created",
-                "prd": prd_data,
+                "agent": leader.name,
+                "emoji": leader.avatar_emoji,
+                "step": 0,
+                "total_steps": len(steps),
+                "agent_name": leader.name,
+                "agent_key": "leader",
+                "task": plan_summary,
+                "message": f"I've created a {len(steps)}-step plan. Shall the team proceed?",
             },
         }
 
         await _mock_delay()
 
-        yield {
-            "event": "agent_thinking",
-            "data": {"agent": architect.name, "emoji": architect.avatar_emoji, "message": f"{architect.avatar_emoji} {architect.name} is designing the architecture..."},
-        }
-
-        arch_text = ""
-        async for ev in _stream_llm_as_events(architect, "think_stream", task, enriched_context):
-            if ev["event"] == "agent_stream":
-                yield ev
-            elif ev["event"] == "agent_stream_done":
-                arch_text = ev["data"]["full_text"]
-
-        try:
-            arch_data = json.loads(arch_text)
-        except json.JSONDecodeError:
-            arch_data = {"architecture": {"tech_stack": {"frontend": "HTML5 + CSS3 + JS"}, "component_structure": []}}
-
-        enriched_context["architecture"] = arch_text
-
-        yield {
-            "event": "agent_action",
-            "data": {
-                "agent": architect.name,
-                "emoji": architect.avatar_emoji,
-                "action": "Architecture designed",
-                "architecture": arch_data,
-            },
-        }
-
-        await _mock_delay()
-
-        yield {
-            "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is building your application..."},
-        }
-
-        code = ""
-        async for ev in _collect_code_with_heartbeat(engineer, task, enriched_context):
-            if ev["event"] == "code_collected":
-                code = ev["data"]["code"]
-            else:
+        for i, step in enumerate(steps):
+            async for ev in self._run_plan_step(step, i + 1, len(steps), task, enriched_context):
                 yield ev
 
-        code = self._extract_html(code)
         total_duration = int((time.time() - total_start) * 1000)
-
-        yield {
-            "event": "code_generated",
-            "data": {"agent": engineer.name, "code": code, "duration_ms": total_duration},
-        }
 
         yield {
             "event": "message_complete",
             "data": {
                 "agent": leader.name,
-                "message": f"Team complete! {pm.name} wrote the PRD, {architect.name} designed the architecture, and {engineer.name} built the app. Preview it on the right — or tell me what to adjust.",
+                "message": f"Team complete! {len(steps)} steps executed. Preview the result on the right, or tell me what to adjust.",
                 "duration_ms": total_duration,
-                "agents_used": [leader.name, pm.name, architect.name, engineer.name],
+                "agents_used": list(dict.fromkeys([leader.name] + [self.agents.get(s.get('agent', ''), self.agents['engineer']).name for s in steps])),
             },
         }
 
@@ -542,9 +525,12 @@ class Orchestrator:
             else:
                 yield ev
 
-        code_a = self._extract_html(code_a)
+        code_a = _extract_html(code_a)
 
         context_b = {**context}
+        if code_a:
+            context_b["previous_code"] = code_a
+            context_b["is_iteration"] = True
         code_b = ""
         yield {
             "event": "agent_thinking",
@@ -556,7 +542,7 @@ class Orchestrator:
             else:
                 yield ev
 
-        code_b = self._extract_html(code_b)
+        code_b = _extract_html(code_b)
         duration = int((time.time() - start) * 1000)
 
         yield {
@@ -611,7 +597,7 @@ class Orchestrator:
         start = time.time()
 
         previous_code = context.get("previous_code", "")
-        review_task = f"Review this code and suggest improvements:\n\n{previous_code[:3000]}\n\nUser request: {task}" if previous_code else task
+        review_task = f"Review this code and suggest improvements:\n\n{previous_code}\n\nUser request: {task}" if previous_code else task
 
         yield {
             "event": "agent_thinking",
@@ -645,7 +631,7 @@ class Orchestrator:
             else:
                 yield ev
 
-        code = self._extract_html(code)
+        code = _extract_html(code)
         duration = int((time.time() - start) * 1000)
 
         yield {
@@ -670,32 +656,12 @@ class Orchestrator:
         elif mode == "race":
             async for event in self.run_race_mode(task, context):
                 yield event
-        elif mode in ("research", "review"):
-            if mode == "review":
-                async for event in self.run_review_mode(task, context):
-                    yield event
-            else:
-                async for event in self.run_research_mode(task, context):
-                    yield event
+        elif mode == "review":
+            async for event in self.run_review_mode(task, context):
+                yield event
+        elif mode == "research":
+            async for event in self.run_research_mode(task, context):
+                yield event
         else:
             async for event in self.run_team_mode(task, context):
                 yield event
-
-    @staticmethod
-    def _extract_html(text: str) -> str:
-        fence_match = re.search(r"```html\s*\n(.*?)```", text, re.DOTALL)
-        if fence_match:
-            return fence_match.group(1).strip()
-        fence_match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
-        if fence_match:
-            content = fence_match.group(1).strip()
-            if content.lower().startswith("<!doctype") or content.lower().startswith("<html"):
-                return content
-        if text.strip().lower().startswith("<!doctype") or text.strip().lower().startswith("<html"):
-            return text.strip()
-        html_start = text.find("<!DOCTYPE")
-        if html_start == -1:
-            html_start = text.find("<html")
-        if html_start != -1:
-            return text[html_start:].strip()
-        return text.strip()
