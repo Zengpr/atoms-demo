@@ -38,7 +38,7 @@ export default function WorkspacePage() {
   const projectId = params.projectId as string;
 
   const { selectProject } = useProjectStore();
-  const { messages, clearMessages, loadHistory, currentMode } = useChatStore();
+  const { messages, clearMessages, loadHistory, currentMode, setMode } = useChatStore();
   const { setPreviewHtml } = usePreviewStore();
 
   const [leftOpen, setLeftOpen] = useState(true);
@@ -67,6 +67,7 @@ export default function WorkspacePage() {
         setEditName(p.name);
         setEditDesc(p.description ?? "");
         setEditMode(p.mode);
+        setMode(p.mode);
         selectProject(p);
         await loadHistory(projectId);
         try {

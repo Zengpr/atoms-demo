@@ -19,11 +19,12 @@ function getAgentEmoji(name: string): string {
 }
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
-  const { messages, isStreaming, addMessage, updateLastAgentMessage, setStreaming, currentMode } =
+  const { messages, isStreaming, addMessage, updateLastAgentMessage, setStreaming, currentMode, setMode } =
     useChatStore();
   const { setPreviewHtml, consoleErrors, clearConsoleErrors } = usePreviewStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
+  const approvalResolveRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -81,12 +82,37 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             }
           } else if (sse.event === "agent_action") {
             lastThinkingId = null;
+            const prd = sse.data.prd;
+            const architecture = sse.data.architecture;
+            const plan = sse.data.plan;
+            let richContent = (sse.data.action as string) ?? "Working...";
+            if (prd) {
+              try {
+                const p = typeof prd === "string" ? JSON.parse(prd) : prd;
+                const features = p?.prd?.features ?? p?.features ?? [];
+                const featList = features.slice(0, 5).map((f: Record<string, unknown>) => `  • ${f.name ?? f}`).join("\n");
+                richContent = `📋 PRD — ${p?.prd?.title ?? p?.title ?? ""}\n${featList}`;
+              } catch { /* ignore */ }
+            } else if (architecture) {
+              try {
+                const a = typeof architecture === "string" ? JSON.parse(architecture) : architecture;
+                const components = a?.components ?? a?.architecture?.components ?? [];
+                const compList = components.slice(0, 5).map((c: Record<string, unknown>) => `  • ${c.name ?? c}`).join("\n");
+                richContent = `🏗️ Architecture — ${a?.architecture?.pattern ?? a?.pattern ?? ""}\n${compList}`;
+              } catch { /* ignore */ }
+            } else if (plan) {
+              try {
+                const p = typeof plan === "string" ? JSON.parse(plan) : plan;
+                const stepList = (p?.steps ?? []).map((s: Record<string, unknown>, i: number) => `  ${i+1}. ${s.agent ?? "agent"}: ${s.task ?? ""}`).join("\n");
+                richContent = `📝 Team Plan\n${stepList}`;
+              } catch { /* ignore */ }
+            }
             addMessage({
               id: crypto.randomUUID(),
               conversationId: projectId,
               role: "agent",
               agentName,
-              content: (sse.data.action as string) ?? "Working...",
+              content: richContent,
               metadata: {
                 action: true,
                 emoji,
@@ -125,6 +151,9 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 agentName: approval.agentName,
               },
               createdAt: new Date().toISOString(),
+            });
+            await new Promise<void>((resolve) => {
+              approvalResolveRef.current = resolve;
             });
           } else if (sse.event === "code_generated") {
             const code = (sse.data.code as string) ?? "";
@@ -174,6 +203,8 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         });
       } finally {
         setStreaming(false);
+        setPendingApproval(null);
+        approvalResolveRef.current = null;
       }
     },
     [projectId, addMessage, updateLastAgentMessage, setStreaming, setPreviewHtml, currentMode, clearConsoleErrors, consoleErrors]
@@ -181,6 +212,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
   const handleApprovalContinue = useCallback(() => {
     setPendingApproval(null);
+    if (approvalResolveRef.current) {
+      approvalResolveRef.current();
+      approvalResolveRef.current = null;
+    }
   }, []);
 
   return (
