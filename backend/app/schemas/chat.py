@@ -8,6 +8,7 @@ class ChatMessage(BaseModel):
     content: str
     mode: str = "engineer"
     console_errors: list[str] = []
+    file_contexts: list[dict] = []
 
 
 class MessageResponse(BaseModel):

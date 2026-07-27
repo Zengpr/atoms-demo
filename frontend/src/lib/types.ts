@@ -47,6 +47,8 @@ export interface AgentInfo {
   role: string;
   description: string;
   avatarEmoji: string;
+  avatarUrl: string;
+  color: string;
 }
 
 export interface SSEEvent {

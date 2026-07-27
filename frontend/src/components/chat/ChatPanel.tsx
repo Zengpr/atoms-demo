@@ -7,7 +7,9 @@ import { MessageBubble } from "./MessageBubble";
 import { ChatInput } from "./ChatInput";
 import { streamChat } from "@/lib/api";
 import type { Message, ApprovalRequest } from "@/lib/types";
-import { AGENTS } from "@/lib/agents";
+import { AGENTS, WORKFLOW_STEPS, getAgentColor, getAgentByName } from "@/lib/agents";
+import Image from "next/image";
+import { CheckCircle2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface ChatPanelProps {
   projectId: string;
@@ -15,7 +17,104 @@ interface ChatPanelProps {
 
 function getAgentEmoji(name: string): string {
   const agent = AGENTS.find((a) => a.name === name);
-  return agent?.avatarEmoji ?? "🤖";
+  return agent?.avatarEmoji ?? "\u{1F916}";
+}
+
+function getAgentRole(name: string): string {
+  const agent = AGENTS.find((a) => a.name === name);
+  return agent?.role ?? "";
+}
+
+type StepStatus = "pending" | "active" | "done";
+
+function WorkflowTracker({ currentStep, totalSteps, activeAgent, stepStatuses }: {
+  currentStep: number;
+  totalSteps: number;
+  activeAgent: string;
+  stepStatuses: Record<string, StepStatus>;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-3 mb-2 glass-card p-3"
+    >
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="text-xs font-medium text-zinc-300">团队工作流</span>
+        <span className="text-[10px] text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">步骤 {currentStep}/{totalSteps}</span>
+      </div>
+      <div className="flex items-center gap-0.5">
+        {WORKFLOW_STEPS.map((step, i) => {
+          const status = stepStatuses[step.key] ?? "pending";
+          const agentInfo = getAgentByName(step.agent);
+          const agentColor = getAgentColor(step.agent);
+          return (
+            <div key={step.key} className="flex items-center gap-0.5 flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div className="relative">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all duration-300 ${
+                      status === "done"
+                        ? "bg-emerald-500/15 ring-1 ring-emerald-500/30"
+                        : status === "active"
+                          ? "ring-2 animate-pulse-glow"
+                          : "bg-white/5"
+                    }`}
+                    style={status === "active" ? { ringColor: `${agentColor}60`, backgroundColor: `${agentColor}10` } : {}}
+                  >
+                    {status === "done" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    ) : agentInfo?.avatarUrl ? (
+                      <Image src={agentInfo.avatarUrl} alt={step.agent} width={20} height={20} className="rounded-full" unoptimized />
+                    ) : (
+                      <span className="text-[10px]">{step.icon}</span>
+                    )}
+                  </div>
+                  {status === "active" && (
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+                      <Loader2 className="h-3 w-3 animate-spin" style={{ color: agentColor }} />
+                    </div>
+                  )}
+                </div>
+                <span className={`text-[9px] mt-1 truncate ${
+                  status === "done" ? "text-emerald-400" : status === "active" ? "text-zinc-200" : "text-zinc-600"
+                }`}>
+                  {step.label}
+                </span>
+              </div>
+              {i < WORKFLOW_STEPS.length - 1 && (
+                <div className={`h-px flex-1 min-w-[8px] ${
+                  status === "done" ? "bg-emerald-500/30" : "bg-white/8"
+                }`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+function WorkingIndicator({ agentName }: { agentName: string }) {
+  const agent = getAgentByName(agentName);
+  const agentColor = getAgentColor(agentName);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="working-indicator py-2"
+    >
+      {agent?.avatarUrl ? (
+        <Image src={agent.avatarUrl} alt={agentName} width={16} height={16} className="rounded-full" unoptimized />
+      ) : (
+        <div className="h-4 w-4 rounded-full" style={{ backgroundColor: `${agentColor}30` }} />
+      )}
+      <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: agentColor }} />
+      <span>{agentName} 正在工作中...</span>
+    </motion.div>
+  );
 }
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
@@ -25,6 +124,13 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
   const approvalResolveRef = useRef<(() => void) | null>(null);
+  const [workflowTracker, setWorkflowTracker] = useState<{
+    currentStep: number;
+    totalSteps: number;
+    activeAgent: string;
+    stepStatuses: Record<string, StepStatus>;
+  } | null>(null);
+  const [workingAgent, setWorkingAgent] = useState<string>("Mike");
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -33,17 +139,18 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   }, [messages]);
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, fileContexts?: { name: string; content: string; type: string; size: number }[]) => {
       const userMsg: Message = {
         id: crypto.randomUUID(),
         conversationId: projectId,
         role: "user",
-        content,
+        content: fileContexts && fileContexts.length > 0 ? `${content}\n\n📎 附件: ${fileContexts.map(f => f.name).join(", ")}` : content,
         createdAt: new Date().toISOString(),
       };
       addMessage(userMsg);
       setStreaming(true);
       setPendingApproval(null);
+      setWorkflowTracker(null);
 
       const errorMessages = consoleErrors.map(
         (e) => `${e.message}${e.line ? ` (line ${e.line})` : ""}`
@@ -52,15 +159,28 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
       let receivedComplete = false;
       let lastThinkingId: string | null = null;
+      const stepStatuses: Record<string, StepStatus> = {};
+      let stepIdx = 0;
+      const isTeamMode = currentMode === "team";
+
+      if (isTeamMode) {
+        stepStatuses["plan"] = "active";
+        setWorkflowTracker({ currentStep: 0, totalSteps: 0, activeAgent: "Mike", stepStatuses });
+      }
 
       try {
-        for await (const sse of streamChat(projectId, content, currentMode, errorMessages)) {
+        for await (const sse of streamChat(projectId, content, currentMode, errorMessages, fileContexts)) {
           const agentName = (sse.data.agent as string) ?? "System";
           const emoji = getAgentEmoji(agentName);
+          const role = getAgentRole(agentName);
+          const agentKey = (sse.data.agent_key as string) ?? "";
+
+          setWorkingAgent(agentName);
 
           if (sse.event === "agent_thinking") {
             const id = crypto.randomUUID();
             lastThinkingId = id;
+            const hideStream = currentMode === "team";
             addMessage({
               id,
               conversationId: projectId,
@@ -70,8 +190,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               metadata: {
                 thinking: true,
                 emoji,
-                message: sse.data.message ?? `${emoji} ${agentName} is thinking...`,
+                role,
+                message: `${agentName}正在思考...`,
                 streamText: "",
+                hideStream,
               },
               createdAt: new Date().toISOString(),
             });
@@ -81,54 +203,97 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               updateLastAgentMessage(lastThinkingId, chunk);
             }
           } else if (sse.event === "agent_action") {
+            const msgs = useChatStore.getState().messages;
+            const thinkingMsg = msgs.find(m => m.id === lastThinkingId);
+            if (thinkingMsg) {
+              const isSuppressed = thinkingMsg.metadata?.hideStream === true;
+              if (isSuppressed && thinkingMsg.id) {
+                useChatStore.setState((s) => ({
+                  messages: s.messages.filter((m) => m.id !== thinkingMsg.id),
+                }));
+              } else {
+                const streamText = (thinkingMsg.metadata?.streamText as string) ?? "";
+                if (streamText.trim()) {
+                  addMessage({
+                    id: crypto.randomUUID(),
+                    conversationId: projectId,
+                    role: "agent",
+                    agentName,
+                    content: streamText,
+                    metadata: { emoji, role },
+                    createdAt: new Date().toISOString(),
+                  });
+                }
+              }
+            }
             lastThinkingId = null;
             const prd = sse.data.prd;
             const architecture = sse.data.architecture;
             const plan = sse.data.plan;
-            let richContent = (sse.data.action as string) ?? "Working...";
+            let richContent = "";
+            let completedStepKey = "";
+
             if (prd) {
+              completedStepKey = "prd";
               try {
                 const p = typeof prd === "string" ? JSON.parse(prd) : prd;
                 const features = p?.prd?.features ?? p?.features ?? [];
-                const featList = features.slice(0, 5).map((f: Record<string, unknown>) => `  • ${f.name ?? f}`).join("\n");
-                richContent = `📋 PRD — ${p?.prd?.title ?? p?.title ?? ""}\n${featList}`;
+                const featList = features.slice(0, 6).map((f: Record<string, unknown>) => `\u2022 ${f.name ?? f}`).join("\n");
+                richContent = `\uD83D\uDCCB \u9700\u6C42\u6587\u6863 \u2014 ${p?.prd?.title ?? p?.title ?? ""}\n\n${featList}`;
               } catch { /* ignore */ }
             } else if (architecture) {
+              completedStepKey = "architecture";
               try {
                 const a = typeof architecture === "string" ? JSON.parse(architecture) : architecture;
                 const components = a?.components ?? a?.architecture?.components ?? [];
-                const compList = components.slice(0, 5).map((c: Record<string, unknown>) => `  • ${c.name ?? c}`).join("\n");
-                richContent = `🏗️ Architecture — ${a?.architecture?.pattern ?? a?.pattern ?? ""}\n${compList}`;
+                const compList = components.slice(0, 6).map((c: Record<string, unknown>) => `\u2022 ${c.name ?? c}`).join("\n");
+                richContent = `\uD83C\uDFD7\uFE0F \u67B6\u6784\u8BBE\u8BA1 \u2014 ${a?.architecture?.pattern ?? a?.pattern ?? ""}\n\n${compList}`;
               } catch { /* ignore */ }
             } else if (plan) {
+              completedStepKey = "plan";
               try {
                 const p = typeof plan === "string" ? JSON.parse(plan) : plan;
-                const stepList = (p?.steps ?? []).map((s: Record<string, unknown>, i: number) => `  ${i+1}. ${s.agent ?? "agent"}: ${s.task ?? ""}`).join("\n");
-                richContent = `📝 Team Plan\n${stepList}`;
+                const planSummary = p?.plan ?? p?.summary ?? "";
+                const steps = p?.steps ?? [];
+                const stepList = steps.map((s: Record<string, unknown>, i: number) => `${i + 1}. ${s.agent ?? "agent"}\uFF1A${s.task ?? ""}`).join("\n");
+                richContent = planSummary ? `${planSummary}\n\n${stepList}` : stepList;
+                if (isTeamMode) {
+                  stepStatuses["plan"] = "done";
+                  setWorkflowTracker(prev => prev ? { ...prev, totalSteps: steps.length, stepStatuses: { ...stepStatuses } } : null);
+                }
               } catch { /* ignore */ }
             }
-            addMessage({
-              id: crypto.randomUUID(),
-              conversationId: projectId,
-              role: "agent",
-              agentName,
-              content: richContent,
-              metadata: {
-                action: true,
-                emoji,
-                plan: sse.data.plan,
-                prd: sse.data.prd,
-                architecture: sse.data.architecture,
-                steps: sse.data.steps,
-                duration_ms: sse.data.duration_ms,
-              },
-              createdAt: new Date().toISOString(),
-            });
+
+            if (completedStepKey && isTeamMode) {
+              stepStatuses[completedStepKey] = "done";
+              stepIdx++;
+            }
+
+            if (richContent) {
+              addMessage({
+                id: crypto.randomUUID(),
+                conversationId: projectId,
+                role: "agent",
+                agentName,
+                content: richContent,
+                metadata: {
+                  action: true,
+                  emoji,
+                  role,
+                  plan: sse.data.plan,
+                  prd: sse.data.prd,
+                  architecture: sse.data.architecture,
+                  steps: sse.data.steps,
+                  duration_ms: sse.data.duration_ms,
+                },
+                createdAt: new Date().toISOString(),
+              });
+            }
           } else if (sse.event === "approval_request") {
             lastThinkingId = null;
             const approval: ApprovalRequest = {
               agent: (sse.data.agent as string) ?? "System",
-              emoji: (sse.data.emoji as string) ?? "👨‍💼",
+              emoji: (sse.data.emoji as string) ?? "\u{1F468}\u{200D}\u{1F4BC}",
               step: (sse.data.step as number) ?? 0,
               totalSteps: (sse.data.total_steps as number) ?? 0,
               agentName: (sse.data.agent_name as string) ?? "Agent",
@@ -136,6 +301,19 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               task: (sse.data.task as string) ?? "",
               message: (sse.data.message as string) ?? "Continue?",
             };
+
+            if (isTeamMode && approval.step > 0) {
+              const agentStepMap: Record<string, string> = { pm: "prd", architect: "architecture", engineer: "code", researcher: "research", leader: "plan" };
+              const prevStepKey = agentStepMap[approval.agentKey] ?? "";
+              if (prevStepKey) stepStatuses[prevStepKey] = "done";
+              const nextAgentKey = approval.step < approval.totalSteps ? "engineer" : "";
+              if (nextAgentKey) {
+                const nextStepKey = agentStepMap[nextAgentKey] ?? "code";
+                stepStatuses[nextStepKey] = "active";
+              }
+              setWorkflowTracker(prev => prev ? { ...prev, currentStep: approval.step, activeAgent: approval.agentName, stepStatuses: { ...stepStatuses } } : null);
+            }
+
             setPendingApproval(approval);
             addMessage({
               id: crypto.randomUUID(),
@@ -149,6 +327,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 step: approval.step,
                 totalSteps: approval.totalSteps,
                 agentName: approval.agentName,
+                role: getAgentRole(approval.agentName),
               },
               createdAt: new Date().toISOString(),
             });
@@ -158,12 +337,20 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           } else if (sse.event === "code_generated") {
             const code = (sse.data.code as string) ?? "";
             if (code) {
+              stepStatuses["code"] = "done";
               setPreviewHtml(code);
+              if (isTeamMode) {
+                setWorkflowTracker(prev => prev ? { ...prev, stepStatuses: { ...stepStatuses } } : null);
+              }
             }
           } else if (sse.event === "message_complete") {
             lastThinkingId = null;
             receivedComplete = true;
             setPendingApproval(null);
+            if (isTeamMode) {
+              Object.keys(stepStatuses).forEach(k => { stepStatuses[k] = "done"; });
+              setWorkflowTracker(prev => prev ? { ...prev, stepStatuses: { ...stepStatuses } } : null);
+            }
             const message = (sse.data.message as string) ?? "";
             const completeAgentName = (sse.data.agent as string) ?? "System";
             addMessage({
@@ -229,70 +416,104 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             <MessageBubble key={msg.id} message={msg} onSuggestionClick={handleSend} />
           ))}
         </AnimatePresence>
+        {workflowTracker && isStreaming && (
+          <WorkflowTracker {...workflowTracker} />
+        )}
         {isStreaming && !pendingApproval && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-2 px-4 py-2"
-          >
-            <div className="flex gap-1">
-              <span className="h-2 w-2 rounded-full bg-atoms-accent animate-bounce [animation-delay:0ms]" />
-              <span className="h-2 w-2 rounded-full bg-atoms-accent animate-bounce [animation-delay:150ms]" />
-              <span className="h-2 w-2 rounded-full bg-atoms-accent animate-bounce [animation-delay:300ms]" />
-            </div>
-            <span className="text-xs text-zinc-500">
-              Agents are working...
-            </span>
-          </motion.div>
+          <WorkingIndicator agentName={workingAgent} />
         )}
         {pendingApproval && isStreaming && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-4 my-2 rounded-xl border border-atoms-accent/30 bg-atoms-accent/5 p-3"
+            className="task-card mx-4 my-2"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{pendingApproval.emoji}</span>
-              <span className="text-sm font-medium text-zinc-200">
-                {pendingApproval.agent} — Step {pendingApproval.step}/{pendingApproval.totalSteps}
-              </span>
+            <div className="flex items-center gap-3 mb-3">
+              {getAgentByName(pendingApproval.agentName)?.avatarUrl ? (
+                <Image
+                  src={getAgentByName(pendingApproval.agentName)!.avatarUrl}
+                  alt={pendingApproval.agentName}
+                  width={36}
+                  height={36}
+                  className="agent-avatar-img"
+                  style={{ borderColor: `${getAgentColor(pendingApproval.agentName)}40` }}
+                  unoptimized
+                />
+              ) : (
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-base agent-avatar-img"
+                  style={{ backgroundColor: `${getAgentColor(pendingApproval.agentName)}20`, borderColor: `${getAgentColor(pendingApproval.agentName)}40` }}
+                >
+                  {pendingApproval.emoji}
+                </div>
+              )}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-200">{pendingApproval.agent}</span>
+                  <span className="text-[10px] text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded">{getAgentRole(pendingApproval.agentName)}</span>
+                </div>
+                <span className="text-[11px] text-zinc-500">步骤 {pendingApproval.step}/{pendingApproval.totalSteps}</span>
+              </div>
             </div>
-            <p className="text-xs text-zinc-400 mb-3">{pendingApproval.message}</p>
-            <div className="flex gap-2">
+            <p className="text-sm text-zinc-300 mb-3 pl-12">{pendingApproval.message}</p>
+            {pendingApproval.task && (
+              <div className="pl-12 mb-3 rounded-lg bg-white/3 px-3 py-2 border border-white/6">
+                <p className="text-xs text-zinc-400">
+                  <span className="text-zinc-500">下一步：</span>
+                  {pendingApproval.task.slice(0, 120)}{pendingApproval.task.length > 120 ? "..." : ""}
+                </p>
+              </div>
+            )}
+            <div className="flex gap-2 pl-12">
               <button
                 onClick={handleApprovalContinue}
-                className="flex-1 rounded-lg bg-atoms-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-atoms-accent-hover transition-colors"
+                className="rounded-lg bg-atoms-accent px-5 py-2 text-sm font-medium text-white hover:bg-atoms-accent-hover transition-all hover:shadow-lg hover:shadow-atoms-accent/20"
               >
-                Continue
+                确认并继续
               </button>
             </div>
           </motion.div>
         )}
         {messages.length === 0 && !isStreaming && (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
-            <div className="text-4xl mb-4">{"\u{1F916}"}</div>
-            <h3 className="text-lg font-semibold text-zinc-300 mb-2">
-              Start Building
+            <div className="flex items-center -space-x-2 mb-5">
+              {AGENTS.slice(0, 5).map((a) => (
+                <div
+                  key={a.name}
+                  className="relative"
+                  style={{ zIndex: 5 - AGENTS.indexOf(a) }}
+                >
+                  <Image
+                    src={a.avatarUrl}
+                    alt={a.name}
+                    width={40}
+                    height={40}
+                    className="agent-avatar-img"
+                    style={{ borderColor: `${a.color}50`, borderWidth: 2 }}
+                    unoptimized
+                  />
+                </div>
+              ))}
+            </div>
+            <h3 className="text-lg font-semibold text-zinc-200 mb-1.5">
+              AI 团队已就绪
             </h3>
-            <p className="text-sm text-zinc-500 max-w-xs mb-4">
-              Describe what you want to build and our AI agents will generate
-              the code for you. You can iterate and refine through conversation.
+            <p className="text-sm text-zinc-500 max-w-xs mb-5 leading-relaxed">
+              描述你想构建什么。Mike 协调团队，Emma 撰写 PRD，Bob 设计架构，Alex 负责实现。
             </p>
             <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
               {[
-                { emoji: "\u{1F3E0}", text: "Landing page for my startup" },
-                { emoji: "\u{1F4CA}", text: "Dashboard with charts and stats" },
-                { emoji: "\u{1F6D2}", text: "E-commerce product catalog" },
-                { emoji: "\u{1F3A8}", text: "Creative portfolio website" },
-                { emoji: "\u{1F522}", text: "Counter app with dark mode" },
-                { emoji: "\u{1F4DD}", text: "Todo list with categories" },
+                { emoji: "\u{1F3AE}", text: "超级玛丽风格的平台跳跃游戏" },
+                { emoji: "\u{1F4CA}", text: "数据仪表盘，带图表和统计" },
+                { emoji: "\u{1F6D2}", text: "电商产品展示页面" },
+                { emoji: "\u{1F3A8}", text: "创意作品集网站" },
               ].map(({ emoji, text }) => (
                 <button
                   key={text}
                   onClick={() => handleSend(text)}
-                  className="rounded-lg border border-atoms-border bg-atoms-card px-3 py-2 text-left text-xs text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200 flex items-start gap-1.5"
+                  className="rounded-xl border border-atoms-border bg-atoms-card px-3 py-2.5 text-left text-xs text-zinc-400 transition-all hover:bg-white/5 hover:text-zinc-200 hover:border-white/15 flex items-start gap-1.5 group"
                 >
-                  <span className="flex-shrink-0">{emoji}</span>
+                  <span className="flex-shrink-0 group-hover:scale-110 transition-transform">{emoji}</span>
                   <span>{text}</span>
                 </button>
               ))}

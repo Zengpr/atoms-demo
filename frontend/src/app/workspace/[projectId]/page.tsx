@@ -20,17 +20,21 @@ import {
   RotateCcw,
   ExternalLink,
   CheckCircle,
+  FolderTree,
+  Download,
+  Bug,
 } from "lucide-react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { PreviewPanel } from "@/components/preview/PreviewPanel";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { WorkflowPanel } from "@/components/editor/WorkflowPanel";
+import { FileTree } from "@/components/editor/FileTree";
 import { useProjectStore, useChatStore, usePreviewStore, useAuthStore } from "@/lib/store";
 import { Badge } from "@/components/ui/Badge";
 import type { Project, ChatMode, CodeVersion } from "@/lib/types";
 import { projectApi, previewApi } from "@/lib/api";
 
-type RightTab = "code" | "workflow" | "versions" | "settings";
+type RightTab = "files" | "code" | "workflow" | "versions" | "settings";
 
 export default function WorkspacePage() {
   const params = useParams();
@@ -40,6 +44,7 @@ export default function WorkspacePage() {
   const { selectProject } = useProjectStore();
   const { messages, clearMessages, loadHistory, currentMode, setMode } = useChatStore();
   const { setPreviewHtml } = usePreviewStore();
+  const { previewHtml } = usePreviewStore();
 
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
@@ -161,6 +166,27 @@ export default function WorkspacePage() {
     }
   };
 
+  const handleDownload = () => {
+    if (!previewHtml) return;
+    const blob = new Blob([previewHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project?.name ?? "app"}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleIssueReport = () => {
+    const textarea = document.querySelector<HTMLTextAreaElement>("textarea");
+    if (textarea) {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+      nativeInputValueSetter?.call(textarea, "我发现了一个问题，请检查当前预览并修复布局、功能或样式方面的Bug。");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.focus();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-atoms-dark">
@@ -208,8 +234,8 @@ export default function WorkspacePage() {
                     {project?.name}
                   </h2>
                   <div className="flex items-center gap-2">
-                    <Badge>{currentMode}</Badge>
-                    {project?.status && <Badge variant={project.status === "completed" ? "success" : project.status === "building" ? "warning" : "default"}>{project.status}</Badge>}
+                    <Badge>{currentMode === "team" ? "团队" : currentMode === "engineer" ? "工程师" : currentMode === "race" ? "竞赛" : currentMode === "research" ? "研究" : currentMode}</Badge>
+                    {project?.status && <Badge variant={project.status === "completed" ? "success" : project.status === "building" ? "warning" : "default"}>{project.status === "completed" ? "已完成" : project.status === "building" ? "构建中" : "草稿"}</Badge>}
                   </div>
                 </div>
               </div>
@@ -248,6 +274,24 @@ export default function WorkspacePage() {
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}
+            {previewHtml && (
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors"
+                title="Download project files"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {previewHtml && (
+              <button
+                onClick={handleIssueReport}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                title="Report an issue / Fix bug"
+              >
+                <Bug className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <button
             onClick={handleDeploy}
@@ -278,10 +322,11 @@ export default function WorkspacePage() {
               <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
                 {(
                   [
-                    { id: "code" as const, icon: Code2, label: "Code" },
-                    { id: "workflow" as const, icon: Workflow, label: "Flow" },
-                    { id: "versions" as const, icon: History, label: "Versions" },
-                    { id: "settings" as const, icon: Settings, label: "Settings" },
+                    { id: "files" as const, icon: FolderTree, label: "文件" },
+                    { id: "code" as const, icon: Code2, label: "代码" },
+                    { id: "workflow" as const, icon: Workflow, label: "流程" },
+                    { id: "versions" as const, icon: History, label: "版本" },
+                    { id: "settings" as const, icon: Settings, label: "设置" },
                   ] as const
                 ).map(({ id, icon: Icon, label }) => (
                   <button
@@ -307,6 +352,7 @@ export default function WorkspacePage() {
             </div>
 
             <div className="flex-1 min-h-0">
+              {rightTab === "files" && <FileTree />}
               {rightTab === "code" && <CodeEditor />}
               {rightTab === "workflow" && <WorkflowPanel messages={messages} />}
               {rightTab === "versions" && (

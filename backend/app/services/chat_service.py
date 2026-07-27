@@ -78,6 +78,7 @@ async def process_chat(
     mode: str,
     user_message: str,
     console_errors: list[str] | None = None,
+    file_contexts: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     conv = await get_or_create_conversation(db, project_id, mode)
 
@@ -98,6 +99,7 @@ async def process_chat(
         "previous_code": last_code or "",
         "is_iteration": len(prev_messages) > 1,
         "console_errors": console_errors or [],
+        "file_contexts": file_contexts or [],
     }
 
     accumulated_code: Optional[str] = None
@@ -154,7 +156,7 @@ async def process_chat(
     if not accumulated_code:
         yield {
             "event": "message_complete",
-            "data": {"agent": "System", "message": "Processing complete.", "duration_ms": total_duration},
+            "data": {"agent": "System", "message": "处理完成。", "duration_ms": total_duration},
         }
 
 

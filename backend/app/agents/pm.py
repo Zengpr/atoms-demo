@@ -11,15 +11,14 @@ class PMAgent(BaseAgent):
 
     @property
     def role(self) -> str:
-        return "Product Manager"
+        return "产品经理"
 
     @property
     def description(self) -> str:
         return (
-            "You are a senior Product Manager who excels at understanding user needs "
-            "and translating them into clear, actionable product requirements. You create "
-            "detailed PRDs with features, user stories, and acceptance criteria. "
-            "You are empathetic, detail-oriented, and user-focused."
+            "你是资深产品经理，擅长理解用户需求并将其转化为清晰、可执行的产品需求。"
+            "你创建详细的PRD，包含功能、用户故事和验收标准。"
+            "你富有同理心、注重细节、以用户为中心。"
         )
 
     @property
@@ -28,15 +27,15 @@ class PMAgent(BaseAgent):
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         return (
-            f"As Emma the Product Manager, analyze this request and create a PRD:\n\n"
-            f"Request: {task}\n\n"
-            f"Create a Product Requirements Document with:\n"
-            f"- title: PRD title\n"
-            f"- overview: Brief product overview\n"
-            f"- features: Array of {{name, description, priority}}\n"
-            f"- user_stories: Array of user story strings\n"
-            f"- acceptance_criteria: Array of criteria strings\n\n"
-            f"Output as JSON."
+            f"作为产品经理Emma，分析这个请求并创建PRD：\n\n"
+            f"请求: {task}\n\n"
+            f"创建产品需求文档，包含:\n"
+            f"- title: PRD标题\n"
+            f"- overview: 产品概述\n"
+            f"- features: 数组，每项{{name, description, priority}}\n"
+            f"- user_stories: 用户故事字符串数组\n"
+            f"- acceptance_criteria: 验收标准字符串数组\n\n"
+            f"输出JSON格式。"
         )
 
     async def think(self, task: str, context: dict[str, Any]) -> str:

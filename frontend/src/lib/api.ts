@@ -1,6 +1,6 @@
 import type { User, Project, Message, CreateProjectData, ChatMode, Template } from "./types";
 
-const FALLBACK_API = "";
+const PROD_API: string = "https://backend-api-production-8923.up.railway.app";
 function cleanUrl(url: string): string {
   let cleaned = url;
   for (const ch of ["\uFEFF", "\u200B", "\\uFEFF", "\\u200B"]) {
@@ -10,12 +10,12 @@ function cleanUrl(url: string): string {
   }
   cleaned = cleaned.trim();
   if (!cleaned || !cleaned.startsWith("http")) {
-    return FALLBACK_API;
+    return "";
   }
   return cleaned;
 }
-const API_BASE = cleanUrl(process.env.NEXT_PUBLIC_API_URL || "");
-const SSE_BASE = API_BASE || FALLBACK_API;
+const API_BASE = cleanUrl(process.env.NEXT_PUBLIC_API_URL || "") || PROD_API;
+const SSE_BASE = API_BASE;
 
 class ApiError extends Error {
   status: number;
@@ -166,12 +166,16 @@ export async function* streamChat(
   projectId: string,
   content: string,
   mode: ChatMode,
-  consoleErrors?: string[]
+  consoleErrors?: string[],
+  fileContexts?: { name: string; content: string; type: string; size: number }[]
 ): AsyncGenerator<SSEMessage> {
   const token = getToken();
   const body: Record<string, unknown> = { content, mode };
   if (consoleErrors && consoleErrors.length > 0) {
     body.console_errors = consoleErrors;
+  }
+  if (fileContexts && fileContexts.length > 0) {
+    body.file_contexts = fileContexts;
   }
   const res = await fetch(`${SSE_BASE}/api/chat/${projectId}/message`, {
     method: "POST",

@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
+RUN echo "NEXT_PUBLIC_API_URL=https://backend-api-production-8923.up.railway.app" > .env.production
+RUN cat .env.production
 RUN npm run build
 
 FROM node:20-alpine AS runner
@@ -13,6 +15,7 @@ ENV HOSTNAME=0.0.0.0
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
 CMD ["node", "server.js"]

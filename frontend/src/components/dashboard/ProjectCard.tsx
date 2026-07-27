@@ -10,6 +10,20 @@ interface ProjectCardProps {
   project: Project;
 }
 
+const MODE_LABELS: Record<string, string> = {
+  engineer: "工程师",
+  team: "团队",
+  race: "竞赛",
+  research: "研究",
+  review: "评审",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  completed: "已完成",
+  building: "构建中",
+  draft: "草稿",
+};
+
 export function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter();
 
@@ -27,9 +41,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => router.push(`/workspace/${project.id}`)}
-      className="group cursor-pointer rounded-xl border border-atoms-border bg-atoms-card p-4 transition-colors hover:border-atoms-accent/40"
+      className="group cursor-pointer rounded-xl border border-atoms-border bg-atoms-card p-4 transition-all hover:border-white/15 hover:shadow-lg hover:shadow-black/20"
     >
-      <div className="mb-3 h-32 rounded-lg bg-atoms-dark/80 flex items-center justify-center overflow-hidden">
+      <div className="mb-3 h-28 rounded-lg bg-atoms-dark/80 flex items-center justify-center overflow-hidden relative">
         {project.thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -38,24 +52,27 @@ export function ProjectCard({ project }: ProjectCardProps) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="text-4xl opacity-30">
+          <div className="text-3xl opacity-20 group-hover:opacity-30 transition-opacity">
             {project.mode === "engineer" ? "\u{1F4BB}" : project.mode === "team" ? "\u{1F465}" : project.mode === "race" ? "\u{26A1}" : "\u{1F50D}"}
           </div>
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-atoms-card/80 to-transparent" />
       </div>
-      <div className="space-y-2">
-        <h3 className="font-semibold text-zinc-100 truncate">
+      <div className="space-y-1.5">
+        <h3 className="font-medium text-zinc-100 truncate text-sm group-hover:text-white transition-colors">
           {project.name}
         </h3>
-        <p className="text-sm text-zinc-400 line-clamp-2">
-          {project.description}
-        </p>
-        <div className="flex items-center gap-2">
-          <Badge variant={statusVariant}>{project.status}</Badge>
-          <Badge>{project.mode}</Badge>
+        {project.description && (
+          <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">
+            {project.description}
+          </p>
+        )}
+        <div className="flex items-center gap-2 pt-1">
+          <Badge variant={statusVariant}>{STATUS_LABELS[project.status] ?? project.status}</Badge>
+          <Badge>{MODE_LABELS[project.mode] ?? project.mode}</Badge>
         </div>
-        <p className="text-xs text-zinc-500">
-          {format(new Date(project.createdAt), "MMM d, yyyy")}
+        <p className="text-[11px] text-zinc-600">
+          {format(new Date(project.createdAt), "yyyy/MM/dd")}
         </p>
       </div>
     </motion.div>

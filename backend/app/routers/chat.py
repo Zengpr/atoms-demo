@@ -40,7 +40,7 @@ async def send_message(
     async def event_stream():
         async with async_session() as stream_db:
             try:
-                async for event in process_chat(stream_db, project_id, mode, data.content, data.console_errors):
+                async for event in process_chat(stream_db, project_id, mode, data.content, data.console_errors, data.file_contexts):
                     yield f"event: {event['event']}\ndata: {json.dumps(event['data'])}\n\n"
                 await stream_db.commit()
             except Exception as e:

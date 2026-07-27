@@ -6,6 +6,8 @@
   --color-atoms-border: #1e1e2e;
   --color-atoms-accent: #6366f1;
   --color-atoms-accent-hover: #818cf8;
+  --color-atoms-surface: #1a1a2e;
+  --color-atoms-surface-hover: #222238;
   --color-background: var(--color-atoms-dark);
   --color-foreground: #ededed;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -123,4 +125,120 @@ body {
     transform: none;
     animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
   }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeSlideIn {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.agent-avatar-img {
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.agent-avatar-img:hover {
+  transform: scale(1.08);
+}
+
+.think-merge-container {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.action-item-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: background 0.15s;
+  min-height: 28px;
+}
+
+.action-item-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.glass-card {
+  background: rgba(20, 20, 32, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.shimmer-bg {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.message-group-enter {
+  animation: fadeSlideIn 0.2s ease-out;
+}
+
+.working-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 60px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.agent-card-atoms {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.agent-card-atoms:hover {
+  transform: translateY(-2px);
+  border-color: var(--hover-color, rgba(99, 102, 241, 0.3));
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3);
+}
+
+.task-card {
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.04);
+  padding: 16px;
+}
+
+.task-card-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.task-card-select:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.task-card-select.selected {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
