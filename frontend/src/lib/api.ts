@@ -1,16 +1,7 @@
 import type { User, Project, Message, CreateProjectData, ChatMode, Template } from "./types";
 
-const PROD_API: string = "https://backend-api-production-8923.up.railway.app"; // v3-bust
-
-function getApiBase(): string {
-  if (typeof window === "undefined") return PROD_API;
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (envUrl && envUrl.startsWith("http")) return envUrl;
-  return PROD_API;
-}
-
-const API_BASE = getApiBase();
-const SSE_BASE = API_BASE;
+const API_BASE: string = "https://backend-api-production-8923.up.railway.app";
+const SSE_BASE: string = "https://backend-api-production-8923.up.railway.app";
 
 class ApiError extends Error {
   status: number;
