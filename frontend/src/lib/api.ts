@@ -1,6 +1,6 @@
 import type { User, Project, Message, CreateProjectData, ChatMode, Template } from "./types";
 
-const PROD_API: string = "https://backend-api-production-8923.up.railway.app";
+const PROD_API: string = "https://backend-api-production-8923.up.railway.app"; // v2-force
 
 function getApiBase(): string {
   if (typeof window === "undefined") return PROD_API;
