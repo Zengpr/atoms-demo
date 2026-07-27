@@ -3,9 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
-RUN echo "NEXT_PUBLIC_API_URL=https://backend-api-production-8923.up.railway.app" > .env.production
-RUN cat .env.production
-RUN npm run build
+ARG CACHEBUST=1
+RUN echo "CACHEBUST=$CACHEBUST" && echo "NEXT_PUBLIC_API_URL=https://backend-api-production-8923.up.railway.app" > .env.production && cat .env.production && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
