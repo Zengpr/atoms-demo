@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
+RUN rm -rf .next
+RUN echo "NEXT_PUBLIC_API_URL=https://backend-api-production-8923.up.railway.app" > .env.production
 RUN npm run build
 
 FROM node:20-alpine AS runner
