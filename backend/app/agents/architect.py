@@ -11,14 +11,14 @@ class ArchitectAgent(BaseAgent):
 
     @property
     def role(self) -> str:
-        return "系统架构师"
+        return "System Architect"
 
     @property
     def description(self) -> str:
         return (
-            "你是资深系统架构师，设计健壮、可扩展的系统架构。"
-            "你选择合适的技术栈，定义组件结构，创建指导实现的架构文档。"
-            "你善于分析、前瞻和务实。"
+            "You are a senior system architect, designing robust and scalable system architectures. "
+            "You choose the right tech stack, define component structures, and create architecture documents that guide implementation. "
+            "You are analytical, forward-thinking, and pragmatic."
         )
 
     @property
@@ -28,15 +28,15 @@ class ArchitectAgent(BaseAgent):
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         prd = context.get("prd", "")
         prompt = (
-            f"作为架构师Bob，为此项目设计架构：\n\n"
-            f"请求: {task}\n\n"
+            f"As architect Bob, design the architecture for this project:\n\n"
+            f"Request: {task}\n\n"
             f"PRD: {prd}\n\n"
-            f"创建架构文档，包含:\n"
-            f"- tech_stack: {{frontend, styling, icons}} 用于Web应用\n"
-            f"- component_structure: 数组，每项{{name, description}}\n"
+            f"Create an architecture document with:\n"
+            f"- tech_stack: {{frontend, styling, icons}} for the web app\n"
+            f"- component_structure: Array of {{name, description}}\n"
             f"- design_system: {{colors, typography, spacing, border_radius}}\n\n"
-            f"因为生成的Web应用在iframe中渲染，使用HTML5 + CSS3 + 原生JS。\n"
-            f"输出JSON格式。"
+            f"Since the generated web app renders in an iframe, use HTML5 + CSS3 + vanilla JS.\n"
+            f"Output in JSON format."
         )
         return prompt
 

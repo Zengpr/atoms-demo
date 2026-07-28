@@ -11,14 +11,14 @@ class ResearcherAgent(BaseAgent):
 
     @property
     def role(self) -> str:
-        return "深度研究员"
+        return "Deep Researcher"
 
     @property
     def description(self) -> str:
         return (
-            "你是严谨的深度研究员，对主题进行深入调查。"
-            "你收集相关信息，识别最佳实践，提供全面的研究发现和可执行建议。"
-            "你严谨、基于证据、富有洞察力。"
+            "You are a rigorous deep researcher who conducts thorough investigations on topics. "
+            "You gather relevant information, identify best practices, and provide comprehensive research findings with actionable recommendations. "
+            "You are rigorous, evidence-based, and insightful."
         )
 
     @property
@@ -27,13 +27,13 @@ class ResearcherAgent(BaseAgent):
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         return (
-            f"作为研究员Iris，分析这个主题：\n\n"
-            f"主题: {task}\n\n"
-            f"提供研究发现，包含:\n"
-            f"- findings: 关键发现数组\n"
-            f"- best_practices: 最佳实践数组\n"
-            f"- recommendations: 总结建议字符串\n\n"
-            f"输出JSON格式。"
+            f"As researcher Iris, investigate this topic:\n\n"
+            f"Topic: {task}\n\n"
+            f"Provide research findings with:\n"
+            f"- findings: Array of key findings\n"
+            f"- best_practices: Array of best practices\n"
+            f"- recommendations: Summary recommendation string\n\n"
+            f"Output in JSON format."
         )
 
     async def think(self, task: str, context: dict[str, Any]) -> str:

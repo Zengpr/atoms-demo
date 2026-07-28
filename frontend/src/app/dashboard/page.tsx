@@ -88,8 +88,8 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-zinc-400 mb-4">请登录以继续</p>
-          <Button onClick={() => router.push("/login")}>登录</Button>
+          <p className="text-zinc-400 mb-4">Please sign in to continue</p>
+          <Button onClick={() => router.push("/login")}>Sign In</Button>
         </div>
       </div>
     );
@@ -110,7 +110,7 @@ export default function DashboardPage() {
             size="sm"
           >
             <Plus className="h-4 w-4" />
-            新建项目
+            New Project
           </Button>
         </div>
 
@@ -123,7 +123,7 @@ export default function DashboardPage() {
           >
             <input
               type="text"
-              placeholder="项目名称"
+              placeholder="Project name"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               className="w-full rounded-lg border border-atoms-border bg-atoms-dark px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-atoms-accent"
@@ -141,12 +141,12 @@ export default function DashboardPage() {
                       : "bg-atoms-dark text-zinc-400 border border-atoms-border hover:border-white/20"
                   }`}
                 >
-                  {m === "team" ? "团队" : m === "engineer" ? "工程师" : m === "race" ? "竞赛" : "研究"}
+                  {m === "team" ? "Team" : m === "engineer" ? "Engineer" : m === "race" ? "Race" : "Research"}
                 </button>
               ))}
             </div>
             <Button type="submit" size="sm" className="w-full">
-              创建
+              Create
             </Button>
           </motion.form>
         )}
@@ -160,9 +160,9 @@ export default function DashboardPage() {
             >
               <div className="truncate font-medium group-hover:text-white transition-colors">{p.name}</div>
               <div className="text-xs text-zinc-500 flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded">{p.mode === "team" ? "团队" : p.mode === "engineer" ? "工程师" : p.mode}</span>
+                <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded">{p.mode === "team" ? "Team" : p.mode === "engineer" ? "Engineer" : p.mode}</span>
                 <span className={`h-1.5 w-1.5 rounded-full ${p.status === "completed" ? "bg-emerald-500" : p.status === "building" ? "bg-amber-500" : "bg-zinc-600"}`} />
-                <span>{p.status === "completed" ? "已完成" : p.status === "building" ? "构建中" : "草稿"}</span>
+                <span>{p.status === "completed" ? "Completed" : p.status === "building" ? "Building" : "Draft"}</span>
               </div>
             </button>
           ))}
@@ -182,7 +182,7 @@ export default function DashboardPage() {
           </div>
           <Button variant="ghost" size="sm" className="w-full" onClick={handleLogout}>
             <LogOut className="h-3.5 w-3.5" />
-            退出
+            Sign Out
           </Button>
         </div>
       </aside>
@@ -195,10 +195,10 @@ export default function DashboardPage() {
           >
             <div className="mb-10">
               <h1 className="text-3xl font-bold text-white mb-2">
-                你的 AI 团队
+                Your AI Team
               </h1>
               <p className="text-zinc-400 max-w-xl leading-relaxed">
-                8 位专业 AI Agent 协同工作。描述你想构建什么，他们负责研究、规划、构建、测试和增长。
+                8 specialized AI Agents working together. Describe what you want to build — they handle research, planning, construction, testing, and growth.
               </p>
             </div>
 
@@ -238,7 +238,7 @@ export default function DashboardPage() {
             <div className="mb-10 glass-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Zap className="h-4 w-4 text-atoms-accent" />
-                <h2 className="text-sm font-semibold text-zinc-200">团队工作流</h2>
+                <h2 className="text-sm font-semibold text-zinc-200">Team Workflow</h2>
               </div>
               <div className="flex items-center gap-1">
                 {WORKFLOW_STEPS.map((step, i) => {
@@ -268,14 +268,14 @@ export default function DashboardPage() {
                 })}
               </div>
               <p className="text-xs text-zinc-500 mt-3">
-                每个关键步骤需要你的确认后才会继续 \u2014 你始终掌控全局。
+                Agents auto-execute the pipeline \u2014 you stay in control with live visibility.
               </p>
             </div>
 
             {templates.length > 0 && (
               <div className="mb-10">
                 <h2 className="text-lg font-semibold text-zinc-200 mb-4">
-                  从模板开始
+                  Start from Template
                 </h2>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {templates.map((t) => (
@@ -294,7 +294,7 @@ export default function DashboardPage() {
             {projects.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold text-zinc-200 mb-4">
-                  最近项目
+                  Recent Projects
                 </h2>
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                   {projects.map((p) => (

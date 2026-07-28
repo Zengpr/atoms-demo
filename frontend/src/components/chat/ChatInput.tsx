@@ -9,16 +9,15 @@ import type { ChatMode } from "@/lib/types";
 interface ModeOption {
   id: ChatMode;
   label: string;
-  labelZh: string;
   desc: string;
   Icon: React.FC<{ className?: string }>;
 }
 
 const MODES: ModeOption[] = [
-  { id: "team", label: "Team", labelZh: "团队", desc: "多Agent协作流水线", Icon: Users },
-  { id: "engineer", label: "Engineer", labelZh: "工程师", desc: "单Agent快速输出", Icon: Wrench },
-  { id: "race", label: "Race", labelZh: "竞赛", desc: "多模型竞速生成", Icon: Zap },
-  { id: "research", label: "Research", labelZh: "研究", desc: "深度主题调研", Icon: Search },
+  { id: "team", label: "Team", desc: "Multi-agent pipeline", Icon: Users },
+  { id: "engineer", label: "Engineer", desc: "Single-agent fast build", Icon: Wrench },
+  { id: "race", label: "Race", desc: "Competing strategies", Icon: Zap },
+  { id: "research", label: "Research", desc: "Deep topic analysis", Icon: Search },
 ];
 
 interface AttachedFile {
@@ -127,7 +126,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             className="flex h-8 items-center gap-1.5 rounded-lg bg-atoms-accent/10 border border-atoms-accent/20 px-2.5 text-xs font-medium text-atoms-accent-hover transition-all hover:bg-atoms-accent/15"
           >
             <ActiveIcon className="h-3.5 w-3.5" />
-            {activeMode.labelZh}
+            {activeMode.label}
           </button>
           {showModes && (
             <div className="absolute bottom-full left-0 mb-2 w-48 rounded-xl border border-atoms-border bg-atoms-card p-1 shadow-2xl z-50">
@@ -149,7 +148,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
                   >
                     <MIcon className="h-4 w-4 flex-shrink-0" />
                     <div className="text-left">
-                      <div className="font-medium">{m.labelZh}</div>
+                      <div className="font-medium">{m.label}</div>
                       <div className="text-[10px] text-zinc-500 mt-0.5">{m.desc}</div>
                     </div>
                   </button>
@@ -171,7 +170,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || isStreaming}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors disabled:opacity-30"
-          title="上传附件"
+          title="Attach file"
         >
           <Paperclip className="h-4 w-4" />
         </button>
@@ -181,7 +180,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={`描述你想构建什么（${activeMode.labelZh}模式）...`}
+          placeholder={`Describe what you want to build (${activeMode.label} mode)...`}
           rows={1}
           disabled={disabled || isStreaming}
           className="flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:opacity-30 leading-relaxed"

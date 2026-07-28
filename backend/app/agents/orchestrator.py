@@ -48,7 +48,7 @@ async def _stream_llm_as_events(
     full_text = ""
     first_token = True
     gen = method(task, context)
-    heartbeat_gen = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg or f"等待{agent.name}响应...")
+    heartbeat_gen = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg or f"Waiting for {agent.name}...")
 
     gen_task = asyncio.create_task(gen.__anext__())
     hb_task = asyncio.create_task(heartbeat_gen.__anext__())
@@ -122,7 +122,7 @@ async def _collect_code_with_heartbeat(
     waiting_msg: str = "",
 ) -> AsyncIterator[dict[str, Any]]:
     gen = agent.act_stream(task, context)
-    hb = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg or f"{agent.avatar_emoji} {agent.name}正在生成代码...")
+    hb = _heartbeat(agent.name, agent.avatar_emoji, waiting_msg or f"{agent.avatar_emoji} {agent.name} is generating code...")
     code = ""
     act_task = asyncio.create_task(gen.__anext__())
     hb_task = asyncio.create_task(hb.__anext__())
@@ -176,6 +176,28 @@ def _extract_html(text: str) -> str:
     return extract_html(text)
 
 
+def _try_parse_json(text: str) -> dict[str, Any] | None:
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', text, re.DOTALL)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace > first_brace:
+        try:
+            return json.loads(text[first_brace:last_brace + 1])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 class Orchestrator:
     def __init__(self):
         self.agents: dict[str, BaseAgent] = {
@@ -198,7 +220,7 @@ class Orchestrator:
 
         yield {
             "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name}正在处理你的请求..."},
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} is processing your request..."},
         }
 
         act_prompt = engineer._build_act_prompt(task, context)
@@ -217,7 +239,7 @@ class Orchestrator:
             return idx
 
         gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_system_prompt(), act_prompt, temperature=0.4, max_tokens=32768)
-        hb = _heartbeat(engineer.name, engineer.avatar_emoji, "正在连接AI模型...")
+        hb = _heartbeat(engineer.name, engineer.avatar_emoji, "Connecting to AI model...")
         act_task = asyncio.create_task(gen.__anext__())
         hb_task = asyncio.create_task(hb.__anext__())
         pending = {act_task, hb_task}
@@ -256,7 +278,7 @@ class Orchestrator:
                                             await asyncio.sleep(0.04)
                                     yield {
                                         "event": "agent_action",
-                                         "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "正在编写代码..."},
+                                         "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "Writing code..."},
                                     }
                             act_task = asyncio.create_task(gen.__anext__())
                             pending.add(act_task)
@@ -305,7 +327,7 @@ class Orchestrator:
             "event": "message_complete",
             "data": {
                 "agent": engineer.name,
-                "message": "应用已生成！你可以在右侧预览，或者告诉我你想修改什么——我可以迭代调整设计、布局、颜色或添加新功能。",
+                "message": "App generated! You can preview it on the right, or tell me what you'd like to change — I can iterate on design, layout, colors, or add new features.",
                 "duration_ms": duration,
             },
         }
@@ -327,7 +349,7 @@ class Orchestrator:
             "data": {
                 "agent": agent.name,
                 "emoji": agent.avatar_emoji,
-                "message": f"第{step_num}/{total_steps}步: {agent.avatar_emoji} {agent.name} — {step_task[:80]}",
+                "message": f"Step {step_num}/{total_steps}: {agent.avatar_emoji} {agent.name} — {step_task[:80]}",
             },
         }
 
@@ -355,11 +377,9 @@ class Orchestrator:
                     full_text = ev["data"]["full_text"]
 
             output_data = full_text
-            try:
-                parsed = json.loads(full_text)
-                output_data = json.dumps(parsed, ensure_ascii=False)
-            except json.JSONDecodeError:
-                pass
+            parsed_output = _try_parse_json(full_text)
+            if parsed_output:
+                output_data = json.dumps(parsed_output, ensure_ascii=False)
 
             if agent_key == "pm":
                 context["prd"] = output_data
@@ -374,8 +394,8 @@ class Orchestrator:
                     "data": {
                         "agent": agent.name,
                         "emoji": agent.avatar_emoji,
-                        "action": f"需求文档已创建 — {feat_names}" if feat_names else "需求文档已创建",
-                        "prd": json.loads(output_data) if output_data.startswith("{") else None,
+                        "action": f"PRD created — {feat_names}" if feat_names else "PRD created",
+                        "prd": parsed_output,
                     },
                 }
             elif agent_key == "architect":
@@ -385,8 +405,8 @@ class Orchestrator:
                     "data": {
                         "agent": agent.name,
                         "emoji": agent.avatar_emoji,
-                        "action": "架构设计完成",
-                        "architecture": json.loads(output_data) if output_data.startswith("{") else None,
+                        "action": "Architecture design complete",
+                        "architecture": parsed_output,
                     },
                 }
             elif agent_key == "researcher":
@@ -396,7 +416,7 @@ class Orchestrator:
                     "data": {
                         "agent": agent.name,
                         "emoji": agent.avatar_emoji,
-                        "action": "研究完成",
+                        "action": "Research complete",
                     },
                 }
             else:
@@ -405,21 +425,8 @@ class Orchestrator:
                     "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": step_task[:100]},
                 }
 
-        needs_approval = agent_key == "engineer" or step_num == total_steps
-        if needs_approval:
-            yield {
-                "event": "approval_request",
-                "data": {
-                    "agent": self.agents["leader"].name,
-                    "emoji": self.agents["leader"].avatar_emoji,
-                    "step": step_num,
-                    "total_steps": total_steps,
-                    "agent_name": agent.name,
-                    "agent_key": agent_key,
-                    "task": step_task,
-                    "message": f"{agent.name}已完成第{step_num}/{total_steps}步。准备生成代码——确认继续？",
-                },
-            }
+        if agent_key == "engineer" or step_num == total_steps:
+            pass
 
     async def run_team_mode(self, task: str, context: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
         leader = self.agents["leader"]
@@ -429,7 +436,7 @@ class Orchestrator:
 
         yield {
             "event": "agent_thinking",
-            "data": {"agent": leader.name, "emoji": leader.avatar_emoji, "message": f"{leader.avatar_emoji} {leader.name}正在协调团队..."},
+            "data": {"agent": leader.name, "emoji": leader.avatar_emoji, "message": f"{leader.avatar_emoji} {leader.name} is coordinating the team..."},
         }
 
         leader_text = ""
@@ -440,9 +447,8 @@ class Orchestrator:
             elif ev["event"] == "agent_stream_done":
                 leader_text = ev["data"]["full_text"]
 
-        try:
-            plan_data = json.loads(leader_text)
-        except json.JSONDecodeError:
+        plan_data = _try_parse_json(leader_text)
+        if not plan_data:
             plan_data = {"plan": leader_text[:200], "steps": [], "summary": "Executing full team pipeline"}
 
         plan_summary = plan_data.get("plan", leader_text[:200])
@@ -466,20 +472,6 @@ class Orchestrator:
             },
         }
 
-        yield {
-            "event": "approval_request",
-            "data": {
-                "agent": leader.name,
-                "emoji": leader.avatar_emoji,
-                "step": 0,
-                "total_steps": len(steps),
-                "agent_name": leader.name,
-                "agent_key": "leader",
-                "task": plan_summary,
-                "message": f"我已制定了{len(steps)}步计划。团队是否开始执行？",
-            },
-        }
-
         await _mock_delay()
 
         for i, step in enumerate(steps):
@@ -492,7 +484,7 @@ class Orchestrator:
             "event": "message_complete",
             "data": {
                 "agent": leader.name,
-                "message": f"团队协作完成！共执行{len(steps)}步。你可以在右侧预览结果，或者告诉我需要调整什么。",
+                "message": f"Team collaboration complete! Executed {len(steps)} steps. Preview the result on the right, or tell me what needs adjustment.",
                 "duration_ms": total_duration,
                 "agents_used": list(dict.fromkeys([leader.name] + [self.agents.get(s.get('agent', ''), self.agents['engineer']).name for s in steps])),
             },
@@ -511,7 +503,7 @@ class Orchestrator:
         code_a = ""
         yield {
             "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"策略A: {engineer.avatar_emoji} {engineer.name}正在构建..."},
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy A: {engineer.avatar_emoji} {engineer.name} is building..."},
         }
         async for ev in _collect_code_with_heartbeat(engineer, task, context):
             if ev["event"] == "code_collected":
@@ -528,7 +520,7 @@ class Orchestrator:
         code_b = ""
         yield {
             "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"策略B: {engineer.avatar_emoji} {engineer.name}正在构建替代方案..."},
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"Strategy B: {engineer.avatar_emoji} {engineer.name} is building alternative..."},
         }
         async for ev in _collect_code_with_heartbeat(engineer, f"Alternative creative approach: {task}", context_b):
             if ev["event"] == "code_collected":
@@ -552,7 +544,7 @@ class Orchestrator:
             "event": "message_complete",
             "data": {
                 "agent": "Race Mode",
-                "message": f"竞速完成！两个方案已生成，耗时{duration}ms。预览两个版本后告诉我你更喜欢哪个方向。",
+                "message": f"Race complete! Two variants generated in {duration}ms. Preview both and tell me which direction you prefer.",
                 "duration_ms": duration,
                 "variants": ["A", "B"],
             },
@@ -580,7 +572,7 @@ class Orchestrator:
             "event": "message_complete",
             "data": {
                 "agent": researcher.name,
-                "message": "研究完成！你可以继续提问，或切换到工程师/团队模式来基于这些发现开始构建。",
+                "message": "Research complete! You can ask follow-up questions, or switch to Engineer/Team mode to start building based on these findings.",
                 "duration_ms": duration,
             },
         }
@@ -595,7 +587,7 @@ class Orchestrator:
 
         yield {
             "event": "agent_thinking",
-            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "message": f"{researcher.avatar_emoji} {researcher.name}正在审查代码..."},
+            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "message": f"{researcher.avatar_emoji} {researcher.name} is reviewing code..."},
         }
 
         thought = ""
@@ -607,7 +599,7 @@ class Orchestrator:
 
         yield {
             "event": "agent_action",
-            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "action": "审查完成，正在应用改进..."},
+            "data": {"agent": researcher.name, "emoji": researcher.avatar_emoji, "action": "Review complete, applying improvements..."},
         }
 
         await _mock_delay()
@@ -637,7 +629,7 @@ class Orchestrator:
             "event": "message_complete",
             "data": {
                 "agent": researcher.name,
-                "message": "审查完成！我已分析了代码并应用了改进。查看预览或继续要求进一步优化。",
+                "message": "Review complete! I've analyzed the code and applied improvements. Check the preview or request further optimization.",
                 "duration_ms": duration,
                 "agents_used": [researcher.name, engineer.name],
             },

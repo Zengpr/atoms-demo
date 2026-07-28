@@ -62,7 +62,7 @@ class BaseAgent(ABC):
             yield chunk
 
     def get_system_prompt(self) -> str:
-        return f"你是{self.name}，{self.role}。{self.description} 请始终用中文回复。"
+        return f"You are {self.name}, {self.role}. {self.description} Always respond in English."
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         return f"Request: {task}\n\nDescribe your implementation plan briefly (2-3 sentences)."

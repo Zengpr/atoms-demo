@@ -40,8 +40,8 @@ function WorkflowTracker({ currentStep, totalSteps, activeAgent, stepStatuses }:
       className="mx-3 mb-2 glass-card p-3"
     >
       <div className="flex items-center gap-2 mb-2.5">
-        <span className="text-xs font-medium text-zinc-300">团队工作流</span>
-        <span className="text-[10px] text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">步骤 {currentStep}/{totalSteps}</span>
+        <span className="text-xs font-medium text-zinc-300">Team Workflow</span>
+        <span className="text-[10px] text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">Step {currentStep}/{totalSteps}</span>
       </div>
       <div className="flex items-center gap-0.5">
         {WORKFLOW_STEPS.map((step, i) => {
@@ -112,7 +112,7 @@ function WorkingIndicator({ agentName }: { agentName: string }) {
         <div className="h-4 w-4 rounded-full" style={{ backgroundColor: `${agentColor}30` }} />
       )}
       <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: agentColor }} />
-      <span>{agentName} 正在工作中...</span>
+      <span>{agentName} is working...</span>
     </motion.div>
   );
 }
@@ -144,7 +144,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         id: crypto.randomUUID(),
         conversationId: projectId,
         role: "user",
-        content: fileContexts && fileContexts.length > 0 ? `${content}\n\n📎 附件: ${fileContexts.map(f => f.name).join(", ")}` : content,
+        content: fileContexts && fileContexts.length > 0 ? `${content}\n\n📎 Attached: ${fileContexts.map(f => f.name).join(", ")}` : content,
         createdAt: new Date().toISOString(),
       };
       addMessage(userMsg);
@@ -191,7 +191,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 thinking: true,
                 emoji,
                 role,
-                message: `${agentName}正在思考...`,
+                message: `${agentName} is thinking...`,
                 streamText: "",
                 hideStream,
               },
@@ -239,7 +239,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 const p = typeof prd === "string" ? JSON.parse(prd) : prd;
                 const features = p?.prd?.features ?? p?.features ?? [];
                 const featList = features.slice(0, 6).map((f: Record<string, unknown>) => `\u2022 ${f.name ?? f}`).join("\n");
-                richContent = `\uD83D\uDCCB \u9700\u6C42\u6587\u6863 \u2014 ${p?.prd?.title ?? p?.title ?? ""}\n\n${featList}`;
+                richContent = `\uD83D\uDCCB PRD \u2014 ${p?.prd?.title ?? p?.title ?? ""}\n\n${featList}`;
               } catch { /* ignore */ }
             } else if (architecture) {
               completedStepKey = "architecture";
@@ -247,7 +247,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 const a = typeof architecture === "string" ? JSON.parse(architecture) : architecture;
                 const components = a?.components ?? a?.architecture?.components ?? [];
                 const compList = components.slice(0, 6).map((c: Record<string, unknown>) => `\u2022 ${c.name ?? c}`).join("\n");
-                richContent = `\uD83C\uDFD7\uFE0F \u67B6\u6784\u8BBE\u8BA1 \u2014 ${a?.architecture?.pattern ?? a?.pattern ?? ""}\n\n${compList}`;
+                richContent = `\uD83C\uDFD7\uFE0F Architecture \u2014 ${a?.architecture?.pattern ?? a?.pattern ?? ""}\n\n${compList}`;
               } catch { /* ignore */ }
             } else if (plan) {
               completedStepKey = "plan";
@@ -291,49 +291,6 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             }
           } else if (sse.event === "approval_request") {
             lastThinkingId = null;
-            const approval: ApprovalRequest = {
-              agent: (sse.data.agent as string) ?? "System",
-              emoji: (sse.data.emoji as string) ?? "\u{1F468}\u{200D}\u{1F4BC}",
-              step: (sse.data.step as number) ?? 0,
-              totalSteps: (sse.data.total_steps as number) ?? 0,
-              agentName: (sse.data.agent_name as string) ?? "Agent",
-              agentKey: (sse.data.agent_key as string) ?? "",
-              task: (sse.data.task as string) ?? "",
-              message: (sse.data.message as string) ?? "Continue?",
-            };
-
-            if (isTeamMode && approval.step > 0) {
-              const agentStepMap: Record<string, string> = { pm: "prd", architect: "architecture", engineer: "code", researcher: "research", leader: "plan" };
-              const prevStepKey = agentStepMap[approval.agentKey] ?? "";
-              if (prevStepKey) stepStatuses[prevStepKey] = "done";
-              const nextAgentKey = approval.step < approval.totalSteps ? "engineer" : "";
-              if (nextAgentKey) {
-                const nextStepKey = agentStepMap[nextAgentKey] ?? "code";
-                stepStatuses[nextStepKey] = "active";
-              }
-              setWorkflowTracker(prev => prev ? { ...prev, currentStep: approval.step, activeAgent: approval.agentName, stepStatuses: { ...stepStatuses } } : null);
-            }
-
-            setPendingApproval(approval);
-            addMessage({
-              id: crypto.randomUUID(),
-              conversationId: projectId,
-              role: "agent",
-              agentName: approval.agent,
-              content: approval.message,
-              metadata: {
-                approval: true,
-                emoji: approval.emoji,
-                step: approval.step,
-                totalSteps: approval.totalSteps,
-                agentName: approval.agentName,
-                role: getAgentRole(approval.agentName),
-              },
-              createdAt: new Date().toISOString(),
-            });
-            await new Promise<void>((resolve) => {
-              approvalResolveRef.current = resolve;
-            });
           } else if (sse.event === "code_generated") {
             const code = (sse.data.code as string) ?? "";
             if (code) {
@@ -452,14 +409,14 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   <span className="text-sm font-medium text-zinc-200">{pendingApproval.agent}</span>
                   <span className="text-[10px] text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded">{getAgentRole(pendingApproval.agentName)}</span>
                 </div>
-                <span className="text-[11px] text-zinc-500">步骤 {pendingApproval.step}/{pendingApproval.totalSteps}</span>
+                <span className="text-[11px] text-zinc-500">Step {pendingApproval.step}/{pendingApproval.totalSteps}</span>
               </div>
             </div>
             <p className="text-sm text-zinc-300 mb-3 pl-12">{pendingApproval.message}</p>
             {pendingApproval.task && (
               <div className="pl-12 mb-3 rounded-lg bg-white/3 px-3 py-2 border border-white/6">
                 <p className="text-xs text-zinc-400">
-                  <span className="text-zinc-500">下一步：</span>
+                  <span className="text-zinc-500">Next:</span>
                   {pendingApproval.task.slice(0, 120)}{pendingApproval.task.length > 120 ? "..." : ""}
                 </p>
               </div>
@@ -469,7 +426,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 onClick={handleApprovalContinue}
                 className="rounded-lg bg-atoms-accent px-5 py-2 text-sm font-medium text-white hover:bg-atoms-accent-hover transition-all hover:shadow-lg hover:shadow-atoms-accent/20"
               >
-                确认并继续
+                 Continue
               </button>
             </div>
           </motion.div>
@@ -496,17 +453,17 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               ))}
             </div>
             <h3 className="text-lg font-semibold text-zinc-200 mb-1.5">
-              AI 团队已就绪
+              AI Team Ready
             </h3>
             <p className="text-sm text-zinc-500 max-w-xs mb-5 leading-relaxed">
-              描述你想构建什么。Mike 协调团队，Emma 撰写 PRD，Bob 设计架构，Alex 负责实现。
+              Describe what you want to build. Mike coordinates the team, Emma writes the PRD, Bob designs architecture, Alex implements it.
             </p>
             <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
               {[
-                { emoji: "\u{1F3AE}", text: "超级玛丽风格的平台跳跃游戏" },
-                { emoji: "\u{1F4CA}", text: "数据仪表盘，带图表和统计" },
-                { emoji: "\u{1F6D2}", text: "电商产品展示页面" },
-                { emoji: "\u{1F3A8}", text: "创意作品集网站" },
+                { emoji: "\u{1F3AE}", text: "Super Mario-style platformer game" },
+                { emoji: "\u{1F4CA}", text: "Data dashboard with charts and stats" },
+                { emoji: "\u{1F6D2}", text: "E-commerce product showcase page" },
+                { emoji: "\u{1F3A8}", text: "Creative portfolio website" },
               ].map(({ emoji, text }) => (
                 <button
                   key={text}

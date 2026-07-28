@@ -181,7 +181,7 @@ export default function WorkspacePage() {
     const textarea = document.querySelector<HTMLTextAreaElement>("textarea");
     if (textarea) {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-      nativeInputValueSetter?.call(textarea, "我发现了一个问题，请检查当前预览并修复布局、功能或样式方面的Bug。");
+      nativeInputValueSetter?.call(textarea, "I found an issue — please review the current preview and fix any layout, functionality, or style bugs.");
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
       textarea.focus();
     }
@@ -234,8 +234,8 @@ export default function WorkspacePage() {
                     {project?.name}
                   </h2>
                   <div className="flex items-center gap-2">
-                    <Badge>{currentMode === "team" ? "团队" : currentMode === "engineer" ? "工程师" : currentMode === "race" ? "竞赛" : currentMode === "research" ? "研究" : currentMode}</Badge>
-                    {project?.status && <Badge variant={project.status === "completed" ? "success" : project.status === "building" ? "warning" : "default"}>{project.status === "completed" ? "已完成" : project.status === "building" ? "构建中" : "草稿"}</Badge>}
+                    <Badge>{currentMode === "team" ? "Team" : currentMode === "engineer" ? "Engineer" : currentMode === "race" ? "Race" : currentMode === "research" ? "Research" : currentMode}</Badge>
+                    {project?.status && <Badge variant={project.status === "completed" ? "success" : project.status === "building" ? "warning" : "default"}>{project.status === "completed" ? "Completed" : project.status === "building" ? "Building" : "Draft"}</Badge>}
                   </div>
                 </div>
               </div>
@@ -322,11 +322,11 @@ export default function WorkspacePage() {
               <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
                 {(
                   [
-                    { id: "files" as const, icon: FolderTree, label: "文件" },
-                    { id: "code" as const, icon: Code2, label: "代码" },
-                    { id: "workflow" as const, icon: Workflow, label: "流程" },
-                    { id: "versions" as const, icon: History, label: "版本" },
-                    { id: "settings" as const, icon: Settings, label: "设置" },
+                    { id: "files" as const, icon: FolderTree, label: "Files" },
+                    { id: "code" as const, icon: Code2, label: "Code" },
+                    { id: "workflow" as const, icon: Workflow, label: "Workflow" },
+                    { id: "versions" as const, icon: History, label: "Versions" },
+                    { id: "settings" as const, icon: Settings, label: "Settings" },
                   ] as const
                 ).map(({ id, icon: Icon, label }) => (
                   <button

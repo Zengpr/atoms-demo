@@ -17,11 +17,11 @@ interface MessageBubbleProps {
 }
 
 const ITERATION_SUGGESTIONS = [
-  "改变配色方案为暖色调",
-  "添加暗色模式切换",
-  "让布局更紧凑",
-  "添加动画和过渡效果",
-  "添加一个联系表单",
+  "Change the color scheme to warm tones",
+  "Add a dark mode toggle",
+  "Make the layout more compact",
+  "Add animations and transitions",
+  "Add a contact form",
 ];
 
 interface ActionItemProps {
@@ -255,13 +255,13 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         {streamText && (
           <div className="think-merge-container mb-2">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] text-zinc-500">思考中</span>
+               <span className="text-[11px] text-zinc-500">Thinking</span>
               <button
                 onClick={() => setThinkExpanded(!thinkExpanded)}
                 className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {thinkExpanded ? "收起" : "展开"}
+                {thinkExpanded ? "Hide" : "Show"}
               </button>
             </div>
             {thinkExpanded && (
@@ -283,7 +283,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
                 className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {thinkExpanded ? "收起" : `${actionItems.length} 项操作`}
+                {thinkExpanded ? "Hide" : `${actionItems.length} actions`}
               </button>
             </div>
             {thinkExpanded ? (
@@ -298,7 +298,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
                   <ActionItem key={i} {...item} />
                 ))}
                 {actionItems.length > 3 && (
-                  <div className="text-[11px] text-zinc-500 pl-4">还有 {actionItems.length - 3} 项...</div>
+                  <div className="text-[11px] text-zinc-500 pl-4">+{actionItems.length - 3} more...</div>
                 )}
               </div>
             )}
@@ -321,7 +321,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
 
         {showIterationHints && onSuggestionClick && (
           <div className="mt-3 pt-2 border-t border-white/5">
-            <div className="text-[10px] text-zinc-500 mb-1.5">继续优化：</div>
+            <div className="text-[10px] text-zinc-500 mb-1.5">Iterate further:</div>
             <div className="flex flex-wrap gap-1.5">
               {ITERATION_SUGGESTIONS.map((s) => (
                 <button

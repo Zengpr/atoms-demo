@@ -11,17 +11,17 @@ interface ProjectCardProps {
 }
 
 const MODE_LABELS: Record<string, string> = {
-  engineer: "工程师",
-  team: "团队",
-  race: "竞赛",
-  research: "研究",
-  review: "评审",
+  engineer: "Engineer",
+  team: "Team",
+  race: "Race",
+  research: "Research",
+  review: "Review",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  completed: "已完成",
-  building: "构建中",
-  draft: "草稿",
+  completed: "Completed",
+  building: "Building",
+  draft: "Draft",
 };
 
 export function ProjectCard({ project }: ProjectCardProps) {

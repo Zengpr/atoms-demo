@@ -12,16 +12,16 @@ class EngineerAgent(BaseAgent):
 
     @property
     def role(self) -> str:
-        return "高级软件工程师"
+        return "Senior Software Engineer"
 
     @property
     def description(self) -> str:
         return (
-            "你是高级软件工程师，编写高质量、生产级代码。"
-            "你基于PRD和架构文档实现完整的、可运行的Web应用。"
-            "你的代码结构清晰、响应式、视觉精美。"
-            "你始终输出完整的、可运行的HTML+CSS+JS代码，可在iframe中渲染。"
-            "不要用Markdown代码块包裹代码，直接以<!DOCTYPE html>开头。"
+            "You are a senior software engineer who writes high-quality, production-grade code. "
+            "You implement complete, runnable web applications based on PRDs and architecture documents. "
+            "Your code is well-structured, responsive, and visually polished. "
+            "You always output a complete, runnable HTML+CSS+JS file that can render in an iframe. "
+            "Do not wrap code in Markdown code blocks — start directly with <!DOCTYPE html>."
         )
 
     @property

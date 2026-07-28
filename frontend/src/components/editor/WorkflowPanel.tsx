@@ -73,7 +73,7 @@ export function WorkflowPanel({ messages }: WorkflowPanelProps) {
         <div className="flex flex-col items-center justify-center h-full text-center">
           <div className="text-3xl mb-3 opacity-30">{"\u{1F3D7}\u{FE0F}"}</div>
           <p className="text-sm text-zinc-500">
-            Agent 工作流将在此显示
+            Agent workflow will appear here
           </p>
         </div>
       ) : (

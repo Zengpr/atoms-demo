@@ -10,18 +10,18 @@ import { Cpu, Eye, Rocket, Sparkles, ArrowRight } from "lucide-react";
 const FEATURES = [
   {
     icon: Cpu,
-    title: "多Agent协作工作流",
-    description: "8位专业AI Agent协同工作，从研究、规划、设计到实现，全流程自动化。",
+    title: "Multi-Agent Workflow",
+    description: "8 specialized AI Agents collaborate seamlessly — from research and planning to design and implementation, fully automated.",
   },
   {
     icon: Eye,
-    title: "实时预览与迭代",
-    description: "Agent生成代码的同时实时预览效果，支持即时修改和迭代优化。",
+    title: "Live Preview & Iterate",
+    description: "Watch your app come to life in real-time as Agents generate code. Instantly modify and iterate on any detail.",
   },
   {
     icon: Rocket,
-    title: "一键部署上线",
-    description: "从想法到可销售产品只需几分钟，一键部署到线上，即刻开始获取用户。",
+    title: "Ship in Minutes",
+    description: "Go from idea to sellable product in minutes. One-click deploy to production and start acquiring users immediately.",
   },
 ];
 
@@ -40,10 +40,10 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login">
-            <Button variant="ghost" size="sm">登录</Button>
+            <Button variant="ghost" size="sm">Sign In</Button>
           </Link>
           <Link href="/login?tab=register">
-            <Button size="sm">开始使用</Button>
+            <Button size="sm">Get Started</Button>
           </Link>
         </div>
       </nav>
@@ -56,7 +56,7 @@ export default function HomePage() {
         >
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-atoms-border bg-atoms-card/60 px-4 py-1.5 text-sm text-zinc-400 backdrop-blur">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            AI Agent 驱动的代码生成平台
+            AI Agent-Powered Code Generation Platform
           </div>
         </motion.div>
 
@@ -66,10 +66,10 @@ export default function HomePage() {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="max-w-4xl text-5xl font-bold leading-tight tracking-tight text-white sm:text-6xl lg:text-7xl"
         >
-          把想法变成
+          Turn ideas into
           <br />
           <span className="bg-gradient-to-r from-atoms-accent to-purple-400 bg-clip-text text-transparent">
-            可销售的产品
+            sellable products
           </span>
         </motion.h1>
 
@@ -79,7 +79,7 @@ export default function HomePage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-6 max-w-2xl text-lg text-zinc-400 leading-relaxed"
         >
-          AI 员工用于验证想法、构建产品并获取客户。几分钟内完成。无需编码。
+          AI employees to validate ideas, build products, and acquire customers. Done in minutes. No coding required.
         </motion.p>
 
         <motion.div
@@ -90,12 +90,12 @@ export default function HomePage() {
         >
           <Link href="/login?tab=register">
             <Button size="lg">
-              免费开始
+              Start Free
               <Rocket className="h-4 w-4" />
             </Button>
           </Link>
           <Link href="/login">
-            <Button variant="outline" size="lg">登录</Button>
+            <Button variant="outline" size="lg">Sign In</Button>
           </Link>
         </motion.div>
       </section>
@@ -109,10 +109,10 @@ export default function HomePage() {
             className="mb-12 text-center"
           >
             <h2 className="text-3xl font-bold text-white mb-3">
-              你的 AI Team
+              Your AI Team
             </h2>
             <p className="text-zinc-400">
-              一个完整的 AI 团队，帮助你以更低成本更快发布
+              A complete AI team to help you ship faster at lower cost
             </p>
           </motion.div>
 
@@ -161,10 +161,10 @@ export default function HomePage() {
             className="mb-12 text-center"
           >
             <h2 className="text-3xl font-bold text-white mb-3">
-              调研、设计、编程、增长，尽在一处
+              Research, Design, Build & Grow — All in One
             </h2>
             <p className="text-zinc-400">
-              几分钟即可上线，不用等几周
+              Ship in minutes, not weeks
             </p>
           </motion.div>
 
@@ -201,14 +201,14 @@ export default function HomePage() {
           className="mx-auto max-w-2xl text-center"
         >
           <h2 className="text-3xl font-bold text-white mb-4">
-            准备好构建你的产品了吗？
+            Ready to build your product?
           </h2>
           <p className="text-zinc-400 mb-8">
-            描述你的想法，AI 团队帮你从零到一
+            Describe your idea, and the AI team builds it from zero to one
           </p>
           <Link href="/login?tab=register">
             <Button size="lg">
-              立即开始
+              Get Started
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>

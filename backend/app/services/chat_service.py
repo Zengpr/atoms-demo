@@ -156,7 +156,7 @@ async def process_chat(
     if not accumulated_code:
         yield {
             "event": "message_complete",
-            "data": {"agent": "System", "message": "处理完成。", "duration_ms": total_duration},
+            "data": {"agent": "System", "message": "Processing complete.", "duration_ms": total_duration},
         }
 
 
