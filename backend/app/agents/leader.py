@@ -30,14 +30,15 @@ class LeaderAgent(BaseAgent):
             f"As team leader Mike, analyze this request and create an execution plan:\n\n"
             f"User request: {task}\n\n"
             f"Project mode: {context.get('mode', 'team')}\n\n"
-            f"Available agents:\n"
-            f"- Emma (PM): Requirements analysis, PRD generation\n"
-            f"- Bob (Architect): System design, tech selection\n"
-            f"- Alex (Engineer): Code implementation\n"
-            f"- Iris (Researcher): In-depth research\n\n"
+            f"Available agents (use EXACT key as the 'agent' value):\n"
+            f"- key='pm' (Emma): Requirements analysis, PRD generation\n"
+            f"- key='architect' (Bob): System design, tech selection\n"
+            f"- key='engineer' (Alex): Code implementation\n"
+            f"- key='researcher' (Iris): In-depth research\n\n"
             f"Decide which agents are needed and their execution order. "
             f"Output a JSON plan with 'plan' (summary), 'steps' (array of {{agent, task}}), "
-            f"and 'summary' (one-sentence summary)."
+            f"and 'summary' (one-sentence summary). "
+            f"CRITICAL: The 'agent' field MUST be the key string (pm, architect, engineer, researcher), NOT the name (Emma, Bob, Alex, Iris)."
         )
 
     async def think(self, task: str, context: dict[str, Any]) -> str:

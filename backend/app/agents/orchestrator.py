@@ -198,6 +198,18 @@ def _try_parse_json(text: str) -> dict[str, Any] | None:
     return None
 
 
+AGENT_NAME_TO_KEY: dict[str, str] = {
+    "Mike": "leader",
+    "Emma": "pm",
+    "Bob": "architect",
+    "Alex": "engineer",
+    "Iris": "researcher",
+    "Sarah": "seo",
+    "Adrian": "ads",
+    "David": "data_analyst",
+}
+
+
 class Orchestrator:
     def __init__(self):
         self.agents: dict[str, BaseAgent] = {
@@ -210,6 +222,17 @@ class Orchestrator:
             "ads": AdsAgent(),
             "data_analyst": DataAnalystAgent(),
         }
+
+    def _resolve_agent_key(self, key_or_name: str) -> str:
+        if key_or_name in self.agents:
+            return key_or_name
+        mapped = AGENT_NAME_TO_KEY.get(key_or_name)
+        if mapped:
+            return mapped
+        lower = key_or_name.lower()
+        if lower in self.agents:
+            return lower
+        return "engineer"
 
     def get_agent(self, name: str) -> BaseAgent | None:
         return self.agents.get(name)
@@ -340,9 +363,10 @@ class Orchestrator:
         task: str,
         context: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
-        agent_key = step.get("agent", "engineer")
+        raw_agent = step.get("agent", "engineer")
+        agent_key = self._resolve_agent_key(raw_agent)
         step_task = step.get("task", task)
-        agent = self.agents.get(agent_key, self.agents["engineer"])
+        agent = self.agents[agent_key]
 
         yield {
             "event": "agent_thinking",
@@ -354,19 +378,37 @@ class Orchestrator:
         }
 
         if agent_key == "engineer":
-            code = ""
-            async for ev in _collect_code_with_heartbeat(agent, step_task, context):
-                if ev["event"] == "code_collected":
-                    code = ev["data"]["code"]
-                else:
+            full_text = ""
+            code_started = False
+            async for ev in _stream_llm_as_events(agent, "act_stream", step_task, context, f"{agent.avatar_emoji} {agent.name} is generating code..."):
+                if ev["event"] == "agent_stream":
+                    full_text += ev["data"].get("chunk", "")
+                    if not code_started:
+                        lower = full_text.lower()
+                        for marker in ["<!doctype", "<html", "```html"]:
+                            if marker in lower:
+                                code_started = True
+                                yield {
+                                    "event": "agent_action",
+                                    "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": "Writing code..."},
+                                }
+                                break
                     yield ev
-            code = _extract_html(code)
+                elif ev["event"] == "agent_stream_done":
+                    full_text = ev["data"]["full_text"]
+
+            code = _extract_html(full_text)
             if code:
                 yield {
                     "event": "code_generated",
                     "data": {"agent": agent.name, "code": code},
                 }
                 context["previous_code"] = code
+            else:
+                yield {
+                    "event": "agent_action",
+                    "data": {"agent": agent.name, "emoji": agent.avatar_emoji, "action": "Code generation attempted (no valid HTML extracted)"},
+                }
         else:
             full_text = ""
             async for ev in _stream_llm_as_events(agent, "think_stream", step_task, context):
@@ -453,6 +495,10 @@ class Orchestrator:
 
         plan_summary = plan_data.get("plan", leader_text[:200])
         steps = plan_data.get("steps", [])
+
+        for step in steps:
+            raw = step.get("agent", "engineer")
+            step["agent"] = self._resolve_agent_key(raw)
 
         if not steps:
             steps = [
