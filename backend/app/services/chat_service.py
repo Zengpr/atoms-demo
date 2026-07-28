@@ -9,88 +9,144 @@ from app.models.project import Project
 from app.agents.orchestrator import Orchestrator
 from app.services.project_service import save_code_version
 from app.schemas.chat import ChatMessage
+from app.database import async_session
 
 
 orchestrator = Orchestrator()
 
 
-async def get_or_create_conversation(db: AsyncSession, project_id: str, mode: str) -> Conversation:
-    result = await db.execute(
-        select(Conversation)
-        .where(Conversation.project_id == project_id)
-        .order_by(Conversation.created_at.desc())
-        .limit(1)
-    )
-    conv = result.scalars().first()
-    if conv:
+async def _db_write(fn):
+    async with async_session() as db:
+        try:
+            result = await fn(db)
+            await db.commit()
+            return result
+        except Exception:
+            await db.rollback()
+            raise
+
+
+async def _get_or_create_conversation(project_id: str, mode: str) -> Conversation:
+    async def _fn(db: AsyncSession):
+        result = await db.execute(
+            select(Conversation)
+            .where(Conversation.project_id == project_id)
+            .order_by(Conversation.created_at.desc())
+            .limit(1)
+        )
+        conv = result.scalars().first()
+        if conv:
+            return conv
+        conv = Conversation(project_id=project_id, mode=mode, title="New Conversation")
+        db.add(conv)
+        await db.flush()
         return conv
-    conv = Conversation(project_id=project_id, mode=mode, title="New Conversation")
-    db.add(conv)
-    await db.flush()
-    return conv
+    return await _db_write(_fn)
 
 
-async def save_message(
-    db: AsyncSession,
+async def _save_message(
     conversation_id: str,
     role: str,
     content: str,
     agent_name: Optional[str] = None,
     metadata: Optional[dict] = None,
 ) -> Message:
-    msg = Message(
-        conversation_id=conversation_id,
-        role=role,
-        agent_name=agent_name,
-        content=content,
-        metadata_=metadata,
-    )
-    db.add(msg)
-    await db.flush()
-    return msg
+    async def _fn(db: AsyncSession):
+        msg = Message(
+            conversation_id=conversation_id,
+            role=role,
+            agent_name=agent_name,
+            content=content,
+            metadata_=metadata,
+        )
+        db.add(msg)
+        await db.flush()
+        return msg
+    return await _db_write(_fn)
 
 
-async def save_agent_log(
-    db: AsyncSession,
+async def _save_agent_log(
     conversation_id: str,
     agent_name: str,
     action: str,
     input_summary: str,
     output_summary: str,
     duration_ms: int,
-) -> AgentLog:
-    log = AgentLog(
-        conversation_id=conversation_id,
-        agent_name=agent_name,
-        action=action,
-        input_summary=input_summary[:500] if input_summary else None,
-        output_summary=output_summary[:500] if output_summary else None,
-        duration_ms=duration_ms,
-    )
-    db.add(log)
-    await db.flush()
-    return log
+) -> None:
+    async def _fn(db: AsyncSession):
+        log = AgentLog(
+            conversation_id=conversation_id,
+            agent_name=agent_name,
+            action=action,
+            input_summary=input_summary[:500] if input_summary else None,
+            output_summary=output_summary[:500] if output_summary else None,
+            duration_ms=duration_ms,
+        )
+        db.add(log)
+        await db.flush()
+    await _db_write(_fn)
+
+
+async def _save_code_and_update_project(project_id: str, code: str) -> None:
+    async def _fn(db: AsyncSession):
+        await save_code_version(db, project_id, code)
+        result = await db.execute(select(Project).where(Project.id == project_id))
+        proj = result.scalars().first()
+        if proj:
+            proj.status = "completed"
+            await db.flush()
+    await _db_write(_fn)
+
+
+async def _get_latest_code(project_id: str) -> Optional[str]:
+    async with async_session() as db:
+        from app.models.code_version import CodeVersion
+        result = await db.execute(
+            select(CodeVersion)
+            .where(CodeVersion.project_id == project_id)
+            .order_by(CodeVersion.created_at.desc())
+            .limit(1)
+        )
+        cv = result.scalars().first()
+        if cv:
+            return cv.code_full or cv.code_html or ""
+        return None
+
+
+async def _get_conversation_history(project_id: str) -> list[Message]:
+    async with async_session() as db:
+        result = await db.execute(
+            select(Conversation).where(Conversation.project_id == project_id)
+            .order_by(Conversation.created_at.desc())
+        )
+        convs = list(result.scalars().all())
+        if not convs:
+            return []
+        conv = convs[0]
+        result = await db.execute(
+            select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at.asc())
+        )
+        return list(result.scalars().all())
 
 
 async def process_chat(
-    db: AsyncSession,
     project_id: str,
     mode: str,
     user_message: str,
     console_errors: list[str] | None = None,
     file_contexts: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
-    conv = await get_or_create_conversation(db, project_id, mode)
+    conv = await _get_or_create_conversation(project_id, mode)
 
-    await save_message(db, conv.id, "user", user_message)
+    await _save_message(conv.id, "user", user_message)
 
-    prev_messages = await get_conversation_history(db, project_id)
+    prev_messages = await _get_conversation_history(project_id)
     history_lines: list[str] = []
     for pm in prev_messages[-10:]:
         role_label = "User" if pm.role == "user" else pm.agent_name or "Assistant"
         history_lines.append(f"{role_label}: {pm.content[:300]}")
 
-    last_code = await _get_latest_code(db, project_id)
+    last_code = await _get_latest_code(project_id)
 
     context: dict = {
         "mode": mode,
@@ -117,8 +173,8 @@ async def process_chat(
             total_duration += duration
             input_summary = user_message if agent_name == "Mike" else action
             output_summary = action
-            await save_agent_log(
-                db, conv.id, agent_name, action, input_summary, output_summary, duration,
+            await _save_agent_log(
+                conv.id, agent_name, action, input_summary, output_summary, duration,
             )
             yield event
 
@@ -137,19 +193,14 @@ async def process_chat(
             message = data.get("message", "")
             total_duration += data.get("duration_ms", 0)
 
-            await save_message(
-                db, conv.id, "assistant", message,
+            await _save_message(
+                conv.id, "assistant", message,
                 agent_name=data.get("agent", "System"),
                 metadata={"duration_ms": total_duration, "agents_used": data.get("agents_used", [])},
             )
 
             if accumulated_code:
-                await save_code_version(db, project_id, accumulated_code)
-                result = await db.execute(select(Project).where(Project.id == project_id))
-                proj = result.scalars().first()
-                if proj:
-                    proj.status = "completed"
-                    await db.flush()
+                await _save_code_and_update_project(project_id, accumulated_code)
 
             yield event
 
@@ -158,32 +209,3 @@ async def process_chat(
             "event": "message_complete",
             "data": {"agent": "System", "message": "Processing complete.", "duration_ms": total_duration},
         }
-
-
-async def _get_latest_code(db: AsyncSession, project_id: str) -> Optional[str]:
-    from app.models.code_version import CodeVersion
-    result = await db.execute(
-        select(CodeVersion)
-        .where(CodeVersion.project_id == project_id)
-        .order_by(CodeVersion.created_at.desc())
-        .limit(1)
-    )
-    cv = result.scalars().first()
-    if cv:
-        return cv.code_full or cv.code_html or ""
-    return None
-
-
-async def get_conversation_history(db: AsyncSession, project_id: str) -> list[Message]:
-    result = await db.execute(
-        select(Conversation).where(Conversation.project_id == project_id)
-        .order_by(Conversation.created_at.desc())
-    )
-    convs = list(result.scalars().all())
-    if not convs:
-        return []
-    conv = convs[0]
-    result = await db.execute(
-        select(Message).where(Message.conversation_id == conv.id).order_by(Message.created_at.asc())
-    )
-    return list(result.scalars().all())

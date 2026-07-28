@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db, async_session
+from app.database import get_db
 from app.routers.auth import get_current_user
 from app.models.user import User
 from app.models.project import Project
@@ -38,15 +38,13 @@ async def send_message(
     await db.close()
 
     async def event_stream():
-        async with async_session() as stream_db:
-            try:
-                async for event in process_chat(stream_db, project_id, mode, data.content, data.console_errors, data.file_contexts):
-                    yield f"event: {event['event']}\ndata: {json.dumps(event['data'])}\n\n"
-                await stream_db.commit()
-            except Exception as e:
-                traceback.print_exc()
-                error_data = json.dumps({"agent": "System", "message": f"Error: {str(e)}"})
-                yield f"event: message_complete\ndata: {error_data}\n\n"
+        try:
+            async for event in process_chat(project_id, mode, data.content, data.console_errors, data.file_contexts):
+                yield f"event: {event['event']}\ndata: {json.dumps(event['data'])}\n\n"
+        except Exception as e:
+            traceback.print_exc()
+            error_data = json.dumps({"agent": "System", "message": f"Error: {str(e)}"})
+            yield f"event: message_complete\ndata: {error_data}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -58,7 +56,7 @@ async def get_history(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_user_project(project_id, user, db)
-    messages = await get_conversation_history(db, project_id)
+    messages = await get_conversation_history(project_id)
     result = []
     for m in messages:
         result.append({
