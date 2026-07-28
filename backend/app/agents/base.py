@@ -57,12 +57,15 @@ class BaseAgent(ABC):
                 full += chunk
                 yield chunk
             return
-        async for chunk in llm_provider.generate_stream(self.get_system_prompt(), prompt, temperature=0.4, max_tokens=32768):
+        async for chunk in llm_provider.generate_stream(self.get_act_system_prompt(), prompt, temperature=0.4, max_tokens=32768):
             full += chunk
             yield chunk
 
     def get_system_prompt(self) -> str:
         return f"You are {self.name}, {self.role}. {self.description} 请始终用中文回复。"
+
+    def get_act_system_prompt(self) -> str:
+        return self.get_system_prompt()
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         return f"Request: {task}\n\nDescribe your implementation plan briefly (2-3 sentences)."

@@ -40,8 +40,8 @@ function WorkflowTracker({ currentStep, totalSteps, activeAgent, stepStatuses }:
       className="mx-3 mb-2 glass-card p-3"
     >
       <div className="flex items-center gap-2 mb-2.5">
-        <span className="text-xs font-medium text-zinc-300">Team Workflow</span>
-        <span className="text-[10px] text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">Step {currentStep}/{totalSteps}</span>
+        <span className="text-xs font-medium text-zinc-300">团队工作流</span>
+        <span className="text-[10px] text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">步骤 {currentStep}/{totalSteps}</span>
       </div>
       <div className="flex items-center gap-0.5">
         {WORKFLOW_STEPS.map((step, i) => {
@@ -112,7 +112,7 @@ function WorkingIndicator({ agentName }: { agentName: string }) {
         <div className="h-4 w-4 rounded-full" style={{ backgroundColor: `${agentColor}30` }} />
       )}
       <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: agentColor }} />
-      <span>{agentName} is working...</span>
+      <span>{agentName} 正在工作中...</span>
     </motion.div>
   );
 }
@@ -237,17 +237,35 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               completedStepKey = "prd";
               try {
                 const p = typeof prd === "string" ? JSON.parse(prd) : prd;
-                const features = p?.prd?.features ?? p?.features ?? [];
-                const featList = features.slice(0, 6).map((f: Record<string, unknown>) => `\u2022 ${f.name ?? f}`).join("\n");
-                richContent = `\uD83D\uDCCB PRD \u2014 ${p?.prd?.title ?? p?.title ?? ""}\n\n${featList}`;
+                const prdData = p?.prd ?? p;
+                const features = prdData?.features ?? [];
+                const featList = features.slice(0, 8).map((f: Record<string, unknown>) => {
+                  const name = f.name ?? f;
+                  const desc = f.description ?? "";
+                  const priority = f.priority ?? "";
+                  return `• **${name}**${desc ? ` — ${desc}` : ""}${priority ? ` [${priority}]` : ""}`;
+                }).join("\n");
+                const overview = prdData?.overview ?? prdData?.title ?? "";
+                const stories = (prdData?.user_stories ?? []).slice(0, 4).map((s: string) => `• ${s}`).join("\n");
+                richContent = `📋 **PRD — ${prdData?.title ?? ""}**\n\n${overview ? `**概述**: ${overview}\n\n` : ""}**功能列表**:\n${featList}${stories ? `\n\n**用户故事**:\n${stories}` : ""}`;
               } catch { /* ignore */ }
             } else if (architecture) {
               completedStepKey = "architecture";
               try {
                 const a = typeof architecture === "string" ? JSON.parse(architecture) : architecture;
-                const components = a?.components ?? a?.architecture?.components ?? [];
-                const compList = components.slice(0, 6).map((c: Record<string, unknown>) => `\u2022 ${c.name ?? c}`).join("\n");
-                richContent = `\uD83C\uDFD7\uFE0F Architecture \u2014 ${a?.architecture?.pattern ?? a?.pattern ?? ""}\n\n${compList}`;
+                const archData = a?.architecture ?? a;
+                const components = archData?.component_structure ?? archData?.components ?? [];
+                const compList = components.slice(0, 8).map((c: Record<string, unknown>) => {
+                  const name = c.name ?? c;
+                  const desc = c.description ?? "";
+                  return `• **${name}**${desc ? ` — ${desc}` : ""}`;
+                }).join("\n");
+                const techStack = archData?.tech_stack;
+                const techInfo = techStack ? Object.entries(techStack).map(([k, v]) => `• ${k}: ${v}`).join("\n") : "";
+                const designSystem = archData?.design_system;
+                const colors = designSystem?.colors;
+                const colorInfo = colors ? Object.entries(colors).map(([k, v]) => `• ${k}: ${v}`).join("\n") : "";
+                richContent = `🏗️ **架构设计**\n\n${techInfo ? `**技术栈**:\n${techInfo}\n\n` : ""}**组件结构**:\n${compList}${colorInfo ? `\n\n**配色方案**:\n${colorInfo}` : ""}`;
               } catch { /* ignore */ }
             } else if (plan) {
               completedStepKey = "plan";
@@ -331,7 +349,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             id: crypto.randomUUID(),
             conversationId: projectId,
             role: "assistant",
-            content: "Stream ended unexpectedly. Please try again.",
+            content: "流式响应意外中断，请重试。",
             metadata: { error: true },
             createdAt: new Date().toISOString(),
           });
@@ -341,7 +359,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           id: crypto.randomUUID(),
           conversationId: projectId,
           role: "assistant",
-          content: "Sorry, an error occurred. Please try again.",
+          content: "抱歉，发生了错误，请重试。",
           metadata: { error: true },
           createdAt: new Date().toISOString(),
         });
@@ -409,14 +427,14 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   <span className="text-sm font-medium text-zinc-200">{pendingApproval.agent}</span>
                   <span className="text-[10px] text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded">{getAgentRole(pendingApproval.agentName)}</span>
                 </div>
-                <span className="text-[11px] text-zinc-500">Step {pendingApproval.step}/{pendingApproval.totalSteps}</span>
+                <span className="text-[11px] text-zinc-500">步骤 {pendingApproval.step}/{pendingApproval.totalSteps}</span>
               </div>
             </div>
             <p className="text-sm text-zinc-300 mb-3 pl-12">{pendingApproval.message}</p>
             {pendingApproval.task && (
               <div className="pl-12 mb-3 rounded-lg bg-white/3 px-3 py-2 border border-white/6">
                 <p className="text-xs text-zinc-400">
-                  <span className="text-zinc-500">Next:</span>
+                  <span className="text-zinc-500">下一步：</span>
                   {pendingApproval.task.slice(0, 120)}{pendingApproval.task.length > 120 ? "..." : ""}
                 </p>
               </div>
@@ -426,7 +444,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 onClick={handleApprovalContinue}
                 className="rounded-lg bg-atoms-accent px-5 py-2 text-sm font-medium text-white hover:bg-atoms-accent-hover transition-all hover:shadow-lg hover:shadow-atoms-accent/20"
               >
-                 Continue
+                  继续
               </button>
             </div>
           </motion.div>
@@ -453,10 +471,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               ))}
             </div>
             <h3 className="text-lg font-semibold text-zinc-200 mb-1.5">
-              AI Team Ready
+              AI 团队就绪
             </h3>
             <p className="text-sm text-zinc-500 max-w-xs mb-5 leading-relaxed">
-              Describe what you want to build. Mike coordinates the team, Emma writes the PRD, Bob designs architecture, Alex implements it.
+              描述你想构建什么。Mike协调团队，Emma编写PRD，Bob设计架构，Alex实现代码。
             </p>
             <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
               {[

@@ -17,11 +17,11 @@ interface MessageBubbleProps {
 }
 
 const ITERATION_SUGGESTIONS = [
-  "Change the color scheme to warm tones",
-  "Add a dark mode toggle",
-  "Make the layout more compact",
-  "Add animations and transitions",
-  "Add a contact form",
+  "把配色方案改成暖色调",
+  "添加深色模式切换",
+  "让布局更紧凑",
+  "添加动画和过渡效果",
+  "添加联系表单",
 ];
 
 interface ActionItemProps {
@@ -255,14 +255,14 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         {streamText && (
           <div className="think-merge-container mb-2">
             <div className="flex items-center justify-between mb-1">
-               <span className="text-[11px] text-zinc-500">Thinking</span>
-              <button
-                onClick={() => setThinkExpanded(!thinkExpanded)}
-                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-              >
-                {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {thinkExpanded ? "Hide" : "Show"}
-              </button>
+               <span className="text-[11px] text-zinc-500">思考中</span>
+               <button
+                 onClick={() => setThinkExpanded(!thinkExpanded)}
+                 className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+               >
+                 {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                 {thinkExpanded ? "收起" : "展开"}
+               </button>
             </div>
             {thinkExpanded && (
               <div className="text-sm text-zinc-300 leading-relaxed mb-1">
@@ -283,16 +283,10 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
                 className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {thinkExpanded ? "Hide" : `${actionItems.length} actions`}
+                {thinkExpanded ? "收起" : `${actionItems.length} 个操作`}
               </button>
             </div>
-            {thinkExpanded ? (
-              <div className="space-y-0.5">
-                {actionItems.map((item, i) => (
-                  <ActionItem key={i} {...item} />
-                ))}
-              </div>
-            ) : (
+            {!thinkExpanded && (
               <div className="space-y-0.5">
                 {actionItems.slice(0, 3).map((item, i) => (
                   <ActionItem key={i} {...item} />
@@ -301,6 +295,22 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
                   <div className="text-[11px] text-zinc-500 pl-4">+{actionItems.length - 3} more...</div>
                 )}
               </div>
+            )}
+            {thinkExpanded && (
+              <>
+                <div className="space-y-0.5">
+                  {actionItems.map((item, i) => (
+                    <ActionItem key={i} {...item} />
+                  ))}
+                </div>
+                {message.content && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-white/3 border border-white/6 text-xs text-zinc-300 leading-relaxed whitespace-pre-line max-h-64 overflow-y-auto">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -321,7 +331,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
 
         {showIterationHints && onSuggestionClick && (
           <div className="mt-3 pt-2 border-t border-white/5">
-            <div className="text-[10px] text-zinc-500 mb-1.5">Iterate further:</div>
+            <div className="text-[10px] text-zinc-500 mb-1.5">继续迭代：</div>
             <div className="flex flex-wrap gap-1.5">
               {ITERATION_SUGGESTIONS.map((s) => (
                 <button

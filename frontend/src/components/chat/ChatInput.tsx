@@ -14,10 +14,10 @@ interface ModeOption {
 }
 
 const MODES: ModeOption[] = [
-  { id: "team", label: "Team", desc: "Multi-agent pipeline", Icon: Users },
-  { id: "engineer", label: "Engineer", desc: "Single-agent fast build", Icon: Wrench },
-  { id: "race", label: "Race", desc: "Competing strategies", Icon: Zap },
-  { id: "research", label: "Research", desc: "Deep topic analysis", Icon: Search },
+  { id: "team", label: "团队", desc: "多智能体协作", Icon: Users },
+  { id: "engineer", label: "工程师", desc: "单智能体快速构建", Icon: Wrench },
+  { id: "race", label: "竞速", desc: "双策略竞争", Icon: Zap },
+  { id: "research", label: "研究", desc: "深度主题分析", Icon: Search },
 ];
 
 interface AttachedFile {
@@ -180,7 +180,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={`Describe what you want to build (${activeMode.label} mode)...`}
+          placeholder={`描述你想构建什么（${activeMode.label}模式）...`}
           rows={1}
           disabled={disabled || isStreaming}
           className="flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:opacity-30 leading-relaxed"

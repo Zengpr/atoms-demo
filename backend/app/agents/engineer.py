@@ -28,6 +28,17 @@ class EngineerAgent(BaseAgent):
     def avatar_emoji(self) -> str:
         return "💻"
 
+    def get_act_system_prompt(self) -> str:
+        return (
+            f"You are {self.name}, {self.role}. "
+            "You write COMPLETE, WORKING HTML+CSS+JS code that runs in an iframe. "
+            "Always output a single HTML file starting with <!DOCTYPE html>. "
+            "NEVER refuse to write code. NEVER say you cannot provide code. "
+            "NEVER wrap code in markdown fences. Start HTML directly. "
+            "When given a task, IMMEDIATELY write the full implementation code. "
+            "Do NOT explain — just output the code."
+        )
+
     def _build_analyze_prompt(self, task: str, context: dict[str, Any]) -> str:
         is_iteration = context.get("is_iteration", False)
         history = context.get("conversation_history", [])
