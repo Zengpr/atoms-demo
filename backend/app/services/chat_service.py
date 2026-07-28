@@ -98,7 +98,7 @@ async def _save_code_and_update_project(project_id: str, code: str) -> None:
     await _db_write(_fn)
 
 
-async def _get_latest_code(project_id: str) -> Optional[str]:
+async def get_latest_code(project_id: str) -> Optional[str]:
     async with async_session() as db:
         from app.models.code_version import CodeVersion
         result = await db.execute(
@@ -113,7 +113,7 @@ async def _get_latest_code(project_id: str) -> Optional[str]:
         return None
 
 
-async def _get_conversation_history(project_id: str) -> list[Message]:
+async def get_conversation_history(project_id: str) -> list[Message]:
     async with async_session() as db:
         result = await db.execute(
             select(Conversation).where(Conversation.project_id == project_id)
@@ -140,13 +140,13 @@ async def process_chat(
 
     await _save_message(conv.id, "user", user_message)
 
-    prev_messages = await _get_conversation_history(project_id)
+    prev_messages = await get_conversation_history(project_id)
     history_lines: list[str] = []
     for pm in prev_messages[-10:]:
         role_label = "User" if pm.role == "user" else pm.agent_name or "Assistant"
         history_lines.append(f"{role_label}: {pm.content[:300]}")
 
-    last_code = await _get_latest_code(project_id)
+    last_code = await get_latest_code(project_id)
 
     context: dict = {
         "mode": mode,
