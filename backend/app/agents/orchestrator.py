@@ -378,9 +378,10 @@ class Orchestrator:
         }
 
         if agent_key == "engineer":
+            engineer_task = f"ORIGINAL USER REQUEST: {task}\n\nYOUR ASSIGNMENT: {step_task}"
             full_text = ""
             code_started = False
-            async for ev in _stream_llm_as_events(agent, "act_stream", step_task, context, f"{agent.avatar_emoji} {agent.name} 正在生成代码..."):
+            async for ev in _stream_llm_as_events(agent, "act_stream", engineer_task, context, f"{agent.avatar_emoji} {agent.name} 正在生成代码..."):
                 if ev["event"] == "agent_stream":
                     full_text += ev["data"].get("chunk", "")
                     if not code_started:

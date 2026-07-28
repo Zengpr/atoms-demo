@@ -161,9 +161,9 @@ class EngineerAgent(BaseAgent):
         else:
             prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
             if prd:
-                prompt += f"Product Requirements (from PM):\n{prd[:2000]}\n\n"
+                prompt += f"Product Requirements (from PM):\n{prd[:3000]}\n\n"
             if architecture:
-                prompt += f"Architecture (from Architect):\n{architecture[:2000]}\n\n"
+                prompt += f"Architecture (from Architect):\n{architecture[:3000]}\n\n"
 
         console_errors = context.get("console_errors", [])
         error_section = ""
@@ -181,6 +181,10 @@ class EngineerAgent(BaseAgent):
             "3. **Implementation** — Output a SINGLE, COMPLETE HTML file starting with <!DOCTYPE html>\n\n"
             + error_section +
             "CRITICAL:\n"
+            "- You MUST build EXACTLY what the user requested. Do NOT build something different.\n"
+            "- If the user asks for a counter app, build a counter app — NOT a feedback system, NOT a landing page.\n"
+            "- If the user asks for a game, build that specific game — NOT a generic template.\n"
+            "- The app title, heading, and content MUST match the user's original request.\n"
             "- Games MUST have: complete game loop (start→play→end), scoring, controls, win/lose, restart\n"
             "- Games: add window.onerror handler that alerts the error so bugs are visible\n"
             "- Games: the start/play button MUST be a real <button> element with click handler, NOT canvas click detection\n"
