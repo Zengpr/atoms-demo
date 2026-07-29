@@ -1,7 +1,7 @@
 import type { User, Project, Message, CreateProjectData, ChatMode, Template } from "./types";
 
-const API_BASE: string = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const SSE_BASE: string = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE: string = process.env.NEXT_PUBLIC_API_URL || "https://backend-api-production-8923.up.railway.app";
+const SSE_BASE: string = process.env.NEXT_PUBLIC_API_URL || "https://backend-api-production-8923.up.railway.app";
 
 class ApiError extends Error {
   status: number;
