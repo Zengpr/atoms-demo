@@ -75,9 +75,10 @@ class EngineerAgent(BaseAgent):
             "NEVER refuse to write code. NEVER say you cannot provide code. "
             "NEVER wrap code in markdown fences. Start HTML directly. "
             "You MUST use Tailwind CSS via CDN — never write raw CSS in <style> tags. "
-            "IMPORTANT: Before the code, write 2-4 sentences explaining your implementation plan — "
+            "IMPORTANT: Before the code, write 2-4 sentences IN CHINESE explaining your implementation plan — "
             "what features you'll build, what approach you'll take, what the user will see. "
-            "This text goes BEFORE the <!DOCTYPE html> line. Then output the full code."
+            "This text goes BEFORE the <!DOCTYPE html> line. Then output the full code. "
+            "ALL non-code text (explanations, descriptions, summaries) MUST be in Chinese (中文)."
         )
 
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
