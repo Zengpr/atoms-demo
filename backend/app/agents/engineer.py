@@ -75,8 +75,9 @@ class EngineerAgent(BaseAgent):
             "NEVER refuse to write code. NEVER say you cannot provide code. "
             "NEVER wrap code in markdown fences. Start HTML directly. "
             "You MUST use Tailwind CSS via CDN — never write raw CSS in <style> tags. "
-            "When given a task, IMMEDIATELY write the full implementation code. "
-            "Do NOT explain or analyze — just output the code starting with <!DOCTYPE html>."
+            "IMPORTANT: Before the code, write 2-4 sentences explaining your implementation plan — "
+            "what features you'll build, what approach you'll take, what the user will see. "
+            "This text goes BEFORE the <!DOCTYPE html> line. Then output the full code."
         )
 
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:

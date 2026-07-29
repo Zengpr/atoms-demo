@@ -310,16 +310,18 @@ class Orchestrator:
                                     text_part = full_text[:code_idx].strip()
                                     text_part = re.sub(r'```.*?$', '', text_part, flags=re.DOTALL).strip()
                                     if text_part:
-                                        words = text_part.split(" ")
-                                        for i, w in enumerate(words):
-                                            yield {
-                                                "event": "agent_stream",
-                                                "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": w + (" " if i < len(words) - 1 else "")},
-                                            }
-                                            await asyncio.sleep(0.04)
+                                        yield {
+                                            "event": "agent_action",
+                                            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": text_part},
+                                        }
                                     yield {
                                         "event": "agent_action",
-                                         "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "正在编写代码..."},
+                                        "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": "正在编写代码..."},
+                                    }
+                                else:
+                                    yield {
+                                        "event": "agent_stream",
+                                        "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": chunk},
                                     }
                             act_task = asyncio.create_task(gen.__anext__())
                             pending.add(act_task)
