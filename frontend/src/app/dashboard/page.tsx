@@ -9,6 +9,8 @@ import {
   LogOut,
   Zap,
   ArrowRight,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
@@ -19,15 +21,24 @@ import type { CreateProjectData, ChatMode, Template } from "@/lib/types";
 import { projectApi } from "@/lib/api";
 import Image from "next/image";
 
+const MODE_LABELS: Record<string, string> = {
+  engineer: "💻 工程师",
+  team: "👥 团队",
+  race: "⚡ 竞速",
+  research: "🔬 研究",
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, logout, loadUser } = useAuthStore();
   const { projects, loadProjects, createProject } = useProjectStore();
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectMode, setNewProjectMode] = useState<ChatMode>("team");
+  const [newProjectMode, setNewProjectMode] = useState<ChatMode>("engineer");
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     loadUser().finally(() => setLoading(false));
@@ -44,28 +55,42 @@ export default function DashboardPage() {
   }, []);
 
   const handleCreateFromTemplate = async (template: Template) => {
-    const data: CreateProjectData = {
-      name: template.name,
-      description: template.description,
-      mode: template.mode as ChatMode,
-      template: template.id,
-    };
-    const project = await createProject(data);
-    router.push(`/workspace/${project.id}`);
+    setCreating(true);
+    setErrorMsg("");
+    try {
+      const data: CreateProjectData = {
+        name: template.name,
+        description: template.description,
+        mode: template.mode as ChatMode,
+        template: template.id,
+      };
+      const project = await createProject(data);
+      router.push(`/workspace/${project.id}`);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "创建失败，请重试");
+      setCreating(false);
+    }
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
-    const data: CreateProjectData = {
-      name: newProjectName.trim(),
-      description: "",
-      mode: newProjectMode,
-    };
-    const project = await createProject(data);
-    setShowNewProject(false);
-    setNewProjectName("");
-    router.push(`/workspace/${project.id}`);
+    setCreating(true);
+    setErrorMsg("");
+    try {
+      const data: CreateProjectData = {
+        name: newProjectName.trim(),
+        description: "",
+        mode: newProjectMode,
+      };
+      const project = await createProject(data);
+      setShowNewProject(false);
+      setNewProjectName("");
+      router.push(`/workspace/${project.id}`);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : "创建失败，请重试");
+      setCreating(false);
+    }
   };
 
   const handleLogout = () => {
@@ -78,7 +103,7 @@ export default function DashboardPage() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-2 text-zinc-400">
           <Sparkles className="h-5 w-5 text-atoms-accent animate-spin" />
-          Loading...
+          加载中...
         </div>
       </div>
     );
@@ -88,8 +113,8 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-zinc-400 mb-4">Please sign in to continue</p>
-          <Button onClick={() => router.push("/login")}>Sign In</Button>
+          <p className="text-zinc-400 mb-4">请登录以继续</p>
+          <Button onClick={() => router.push("/login")}>登录</Button>
         </div>
       </div>
     );
@@ -110,7 +135,7 @@ export default function DashboardPage() {
             size="sm"
           >
             <Plus className="h-4 w-4" />
-            New Project
+            新建项目
           </Button>
         </div>
 
@@ -123,7 +148,7 @@ export default function DashboardPage() {
           >
             <input
               type="text"
-              placeholder="Project name"
+              placeholder="项目名称"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               className="w-full rounded-lg border border-atoms-border bg-atoms-dark px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-atoms-accent"
@@ -141,17 +166,24 @@ export default function DashboardPage() {
                       : "bg-atoms-dark text-zinc-400 border border-atoms-border hover:border-white/20"
                   }`}
                 >
-                  {m === "team" ? "Team" : m === "engineer" ? "Engineer" : m === "race" ? "Race" : "Research"}
+                  {MODE_LABELS[m] ?? m}
                 </button>
               ))}
             </div>
-            <Button type="submit" size="sm" className="w-full">
-              Create
+            <Button type="submit" size="sm" className="w-full" disabled={creating}>
+              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {creating ? "创建中..." : "创建"}
             </Button>
           </motion.form>
         )}
 
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 scrollbar-thin">
+          {projects.length === 0 && (
+            <div className="flex flex-col items-center py-8 text-center">
+              <p className="text-xs text-zinc-500">暂无项目</p>
+              <p className="text-xs text-zinc-600 mt-1">点击上方按钮创建</p>
+            </div>
+          )}
           {projects.map((p) => (
             <button
               key={p.id}
@@ -160,13 +192,21 @@ export default function DashboardPage() {
             >
               <div className="truncate font-medium group-hover:text-white transition-colors">{p.name}</div>
               <div className="text-xs text-zinc-500 flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded">{p.mode === "team" ? "Team" : p.mode === "engineer" ? "Engineer" : p.mode}</span>
+                <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded">{MODE_LABELS[p.mode] ?? p.mode}</span>
                 <span className={`h-1.5 w-1.5 rounded-full ${p.status === "completed" ? "bg-emerald-500" : p.status === "building" ? "bg-amber-500" : "bg-zinc-600"}`} />
-                <span>{p.status === "completed" ? "Completed" : p.status === "building" ? "Building" : "Draft"}</span>
+                <span>{p.status === "completed" ? "已完成" : p.status === "building" ? "构建中" : "草稿"}</span>
               </div>
             </button>
           ))}
         </div>
+
+        {errorMsg && (
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            {errorMsg}
+            <button onClick={() => setErrorMsg("")} className="ml-auto text-red-400/50 hover:text-red-400">×</button>
+          </div>
+        )}
 
         <div className="border-t border-atoms-border px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
@@ -182,7 +222,7 @@ export default function DashboardPage() {
           </div>
           <Button variant="ghost" size="sm" className="w-full" onClick={handleLogout}>
             <LogOut className="h-3.5 w-3.5" />
-            Sign Out
+            退出登录
           </Button>
         </div>
       </aside>
@@ -195,10 +235,10 @@ export default function DashboardPage() {
           >
             <div className="mb-10">
               <h1 className="text-3xl font-bold text-white mb-2">
-                Your AI Team
+                AI 团队
               </h1>
               <p className="text-zinc-400 max-w-xl leading-relaxed">
-                8 specialized AI Agents working together. Describe what you want to build — they handle research, planning, construction, testing, and growth.
+                8个专业AI Agent自动协作。描述你想构建什么——调研、规划、开发、测试、增长，全搞定。
               </p>
             </div>
 
@@ -209,7 +249,7 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
-                  className="agent-card-atoms rounded-xl border border-atoms-border bg-atoms-card p-4 text-center cursor-pointer hover:bg-atoms-surface-hover"
+                  className="agent-card-atoms rounded-xl border border-atoms-border bg-atoms-card p-4 text-center"
                   style={{ "--hover-color": `${agent.color}40` } as React.CSSProperties}
                 >
                   <div className="flex justify-center mb-3">
@@ -238,7 +278,7 @@ export default function DashboardPage() {
             <div className="mb-10 glass-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Zap className="h-4 w-4 text-atoms-accent" />
-                <h2 className="text-sm font-semibold text-zinc-200">Team Workflow</h2>
+                <h2 className="text-sm font-semibold text-zinc-200">团队工作流</h2>
               </div>
               <div className="flex items-center gap-1">
                 {WORKFLOW_STEPS.map((step, i) => {
@@ -268,14 +308,14 @@ export default function DashboardPage() {
                 })}
               </div>
               <p className="text-xs text-zinc-500 mt-3">
-                Agents auto-execute the pipeline \u2014 you stay in control with live visibility.
+                Agent自动执行流水线——你拥有全程可见性和控制权。
               </p>
             </div>
 
             {templates.length > 0 && (
               <div className="mb-10">
                 <h2 className="text-lg font-semibold text-zinc-200 mb-4">
-                  Start from Template
+                  从模板开始
                 </h2>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {templates.map((t) => (
@@ -294,7 +334,7 @@ export default function DashboardPage() {
             {projects.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold text-zinc-200 mb-4">
-                  Recent Projects
+                  最近项目
                 </h2>
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                   {projects.map((p) => (

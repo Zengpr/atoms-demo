@@ -48,13 +48,12 @@ function extractFiles(html: string): VirtualFile[] {
 }
 
 interface PreviewPanelProps {
-  projectId: string;
   onDeploy?: () => void;
   deploying?: boolean;
   deployMsg?: string;
 }
 
-export function PreviewPanel({ onDeploy, deploying, deployMsg }: PreviewPanelProps) {
+export function PreviewPanel({ }: PreviewPanelProps) {
   const { previewHtml, consoleErrors, addConsoleError, clearConsoleErrors } = usePreviewStore();
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -187,22 +186,6 @@ window.addEventListener('unhandledrejection',function(e){
           >
             <ExternalLink className="h-4 w-4" />
           </button>
-          {onDeploy && (
-            <>
-              <div className="h-4 w-px bg-atoms-border mx-0.5" />
-              <button
-                onClick={onDeploy}
-                disabled={deploying}
-                className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/5 disabled:opacity-50"
-                title="部署"
-              >
-                <Rocket className="h-4 w-4" />
-              </button>
-              {deployMsg && (
-                <span className="text-xs text-atoms-accent">{deployMsg}</span>
-              )}
-            </>
-          )}
         </div>
       </div>
 

@@ -130,8 +130,11 @@ export default function WorkspacePage() {
     } catch {}
   }, [projectId]);
 
+  const [saveMsg, setSaveMsg] = useState("");
+
   const handleSave = async () => {
     setSaving(true);
+    setSaveMsg("");
     try {
       const updated = await projectApi.update(projectId, {
         name: editName,
@@ -140,6 +143,12 @@ export default function WorkspacePage() {
       });
       setProject(updated);
       selectProject(updated);
+      setMode(editMode);
+      setSaveMsg("已保存");
+      setTimeout(() => setSaveMsg(""), 2000);
+    } catch (e: unknown) {
+      setSaveMsg(e instanceof Error ? e.message : "保存失败");
+      setTimeout(() => setSaveMsg(""), 3000);
     } finally {
       setSaving(false);
     }
@@ -201,14 +210,10 @@ export default function WorkspacePage() {
     URL.revokeObjectURL(url);
   };
 
+  const [issueText, setIssueText] = useState("");
+
   const handleIssueReport = () => {
-    const textarea = document.querySelector<HTMLTextAreaElement>("textarea");
-    if (textarea) {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-      nativeInputValueSetter?.call(textarea, "我发现了问题 — 请检查当前预览并修复布局、功能或样式方面的 bug。");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      textarea.focus();
-    }
+    setIssueText("我发现了问题 — 请检查当前预览并修复布局、功能或样式方面的 bug。");
   };
 
   const handleDragLeft = useCallback((e: React.MouseEvent) => {
@@ -317,7 +322,7 @@ export default function WorkspacePage() {
                 <PanelLeftClose className="h-4 w-4" />
               </button>
             </div>
-            <ChatPanel projectId={projectId} />
+            <ChatPanel projectId={projectId} prefillText={issueText} onPrefillConsumed={() => setIssueText("")} />
           </>
         ) : (
           <div className="flex flex-col items-center pt-3 gap-3">
@@ -397,7 +402,7 @@ export default function WorkspacePage() {
             {deployMsg}
           </div>
         )}
-        <PreviewPanel onDeploy={handleDeploy} deploying={deploying} deployMsg={deployMsg} />
+        <PreviewPanel />
       </div>
 
       {/* Right resize handle */}
@@ -575,7 +580,7 @@ export default function WorkspacePage() {
                     className="flex items-center gap-2 rounded-lg bg-atoms-accent px-4 py-2 text-sm font-medium text-white hover:bg-atoms-accent-hover transition-colors disabled:opacity-50"
                   >
                     <Save className="h-4 w-4" />
-                    {saving ? "保存中..." : "保存"}
+                    {saving ? "保存中..." : saveMsg || "保存"}
                   </button>
                   <hr className="border-atoms-border" />
                   <button

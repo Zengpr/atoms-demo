@@ -1,35 +1,44 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { AGENTS } from "@/lib/agents";
-import { Cpu, Eye, Rocket, Sparkles, ArrowRight, Zap } from "lucide-react";
+import { Cpu, Eye, Rocket, Sparkles, ArrowRight, Zap, Loader2 } from "lucide-react";
 
 const FEATURES = [
   {
     icon: Cpu,
-    title: "Multi-Agent Workflow",
-    description: "8 specialized AI Agents collaborate seamlessly — from research and planning to design and implementation, fully automated.",
+    title: "多 Agent 协作",
+    description: "8个专业AI Agent自动协作——从调研、规划到设计和实现，全流程自动化。",
   },
   {
     icon: Eye,
-    title: "Live Preview & Iterate",
-    description: "Watch your app come to life in real-time as Agents generate code. Instantly modify and iterate on any detail.",
+    title: "实时预览 & 迭代",
+    description: "Agent生成代码的同时实时预览。随时修改任何细节，快速迭代。",
   },
   {
     icon: Rocket,
-    title: "Ship in Minutes",
-    description: "Go from idea to sellable product in minutes. One-click deploy to production and start acquiring users immediately.",
+    title: "分钟级交付",
+    description: "从想法到可交付产品只需几分钟。一键部署，立即上线。",
   },
 ];
 
 export default function HomePage() {
+  const [guestLoading, setGuestLoading] = useState(false);
+
   const handleGuestLogin = async () => {
-    const { guestLogin } = await import("@/lib/store").then(m => m.useAuthStore.getState());
-    await guestLogin();
-    window.location.href = "/dashboard";
+    if (guestLoading) return;
+    setGuestLoading(true);
+    try {
+      const { guestLogin } = await import("@/lib/store").then(m => m.useAuthStore.getState());
+      await guestLogin();
+      window.location.href = "/dashboard";
+    } catch {
+      setGuestLoading(false);
+    }
   };
 
   return (
@@ -47,16 +56,17 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleGuestLogin}
-            className="flex items-center gap-1.5 rounded-lg border border-atoms-border bg-atoms-card px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5 transition-colors"
+            disabled={guestLoading}
+            className="flex items-center gap-1.5 rounded-lg border border-atoms-border bg-atoms-card px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5 transition-colors disabled:opacity-50"
           >
-            <Zap className="h-3.5 w-3.5 text-amber-400" />
-            Try as Guest
+            {guestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 text-amber-400" />}
+            {guestLoading ? "登录中..." : "游客体验"}
           </button>
           <Link href="/login">
-            <Button variant="ghost" size="sm">Sign In</Button>
+            <Button variant="ghost" size="sm">登录</Button>
           </Link>
           <Link href="/login?tab=register">
-            <Button size="sm">Get Started</Button>
+            <Button size="sm">注册</Button>
           </Link>
         </div>
       </nav>
@@ -69,7 +79,7 @@ export default function HomePage() {
         >
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-atoms-border bg-atoms-card/60 px-4 py-1.5 text-sm text-zinc-400 backdrop-blur">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            AI Agent-Powered Code Generation Platform
+            AI Agent 驱动的代码生成平台
           </div>
         </motion.div>
 
@@ -79,10 +89,10 @@ export default function HomePage() {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="max-w-4xl text-5xl font-bold leading-tight tracking-tight text-white sm:text-6xl lg:text-7xl"
         >
-          Turn ideas into
+          把想法变成
           <br />
           <span className="bg-gradient-to-r from-atoms-accent to-purple-400 bg-clip-text text-transparent">
-            sellable products
+            可交付的产品
           </span>
         </motion.h1>
 
@@ -92,7 +102,7 @@ export default function HomePage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-6 max-w-2xl text-lg text-zinc-400 leading-relaxed"
         >
-          AI employees to validate ideas, build products, and acquire customers. Done in minutes. No coding required.
+          AI团队帮你验证想法、构建产品、获取用户。几分钟搞定，无需编码。
         </motion.p>
 
         <motion.div
@@ -104,19 +114,20 @@ export default function HomePage() {
           <div className="flex gap-4">
             <button
               onClick={handleGuestLogin}
-              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-all"
+              disabled={guestLoading}
+              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-all disabled:opacity-50"
             >
-              <Zap className="h-4 w-4" />
-              Try as Guest — No Signup
+              {guestLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              {guestLoading ? "登录中..." : "游客体验 — 免注册"}
             </button>
             <Link href="/login?tab=register">
               <Button size="lg">
-                Start Free
+                免费开始
                 <Rocket className="h-4 w-4" />
               </Button>
             </Link>
           </div>
-          <p className="text-xs text-zinc-600">Demo account: demo@atoms-demo.app / demo2024</p>
+          <p className="text-xs text-zinc-600">演示账号: demo@atoms-demo.app / demo2024</p>
         </motion.div>
       </section>
 
@@ -129,10 +140,10 @@ export default function HomePage() {
             className="mb-12 text-center"
           >
             <h2 className="text-3xl font-bold text-white mb-3">
-              Your AI Team
+              你的 AI 团队
             </h2>
             <p className="text-zinc-400">
-              A complete AI team to help you ship faster at lower cost
+              8个专业AI Agent帮你更快、更低成本地交付产品
             </p>
           </motion.div>
 
@@ -181,10 +192,10 @@ export default function HomePage() {
             className="mb-12 text-center"
           >
             <h2 className="text-3xl font-bold text-white mb-3">
-              Research, Design, Build & Grow — All in One
+              调研、设计、构建、增长 — 一站搞定
             </h2>
             <p className="text-zinc-400">
-              Ship in minutes, not weeks
+              几分钟交付，而不是几周
             </p>
           </motion.div>
 
@@ -221,22 +232,23 @@ export default function HomePage() {
           className="mx-auto max-w-2xl text-center"
         >
           <h2 className="text-3xl font-bold text-white mb-4">
-            Ready to build your product?
+            准备好构建你的产品了吗？
           </h2>
           <p className="text-zinc-400 mb-8">
-            Describe your idea, and the AI team builds it from zero to one
+            描述你的想法，AI团队从零到一帮你构建
           </p>
           <div className="flex gap-4 justify-center">
             <button
               onClick={handleGuestLogin}
-              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-all"
+              disabled={guestLoading}
+              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-all disabled:opacity-50"
             >
-              <Zap className="h-4 w-4" />
-              Try as Guest
+              {guestLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              游客体验
             </button>
             <Link href="/login?tab=register">
               <Button size="lg">
-                Get Started
+                免费开始
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -250,7 +262,7 @@ export default function HomePage() {
             <Sparkles className="h-4 w-4 text-atoms-accent" />
             <span>Atoms Demo</span>
           </div>
-          <span>Built with Next.js + FastAPI</span>
+          <span>基于 Next.js + FastAPI 构建</span>
         </div>
       </footer>
     </div>

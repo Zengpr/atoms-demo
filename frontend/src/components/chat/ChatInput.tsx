@@ -32,9 +32,11 @@ interface ChatInputProps {
   onSend: (content: string, fileContexts?: AttachedFile[]) => void;
   onStop?: () => void;
   disabled?: boolean;
+  prefillText?: string;
+  onPrefillConsumed?: () => void;
 }
 
-export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, prefillText, onPrefillConsumed }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [showModes, setShowModes] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -53,6 +55,16 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
   useEffect(() => {
     adjustHeight();
   }, [value, adjustHeight]);
+
+  useEffect(() => {
+    if (prefillText) {
+      setValue(prefillText);
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+      onPrefillConsumed?.();
+    }
+  }, [prefillText, onPrefillConsumed]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

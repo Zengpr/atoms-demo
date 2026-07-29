@@ -30,7 +30,7 @@ function LoginForm() {
       await useAuthStore.getState().guestLogin();
       router.push("/dashboard");
     } catch {
-      setError("Failed to create guest account. Please try manual registration.");
+      setError("创建游客账号失败，请尝试手动注册。");
     } finally {
       setGuestLoading(false);
     }
@@ -49,17 +49,17 @@ function LoginForm() {
       }
       router.push("/dashboard");
     } catch (err: unknown) {
-      let message = "Something went wrong. Please try again.";
+      let message = "出错了，请重试。";
       if (err instanceof Error) {
         message = err.message;
       }
       if (message.includes("400") || message.includes("already")) {
         message = tab === "register"
-          ? "Email or username already taken. Try a different one."
-          : "Invalid email or password.";
+          ? "邮箱或用户名已被使用，请换一个。"
+          : "邮箱或密码不正确。";
       }
       if (message.includes("500") || message.includes("Server error") || message.includes("Failed to fetch")) {
-        message = "Unable to connect to server. Please make sure the backend is running.";
+        message = "无法连接服务器，请检查网络。";
       }
       setError(message);
     } finally {
@@ -79,20 +79,17 @@ function LoginForm() {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-atoms-accent/10 text-atoms-accent">
             <Sparkles className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold text-white">Atoms Demo</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            AI Agent-driven code generation
+            AI Agent 驱动的代码生成平台
           </p>
         </div>
 
-        {/* Card */}
         <div className="rounded-xl border border-atoms-border bg-atoms-card p-6 shadow-2xl shadow-atoms-accent/5">
-          {/* Tabs */}
           <div className="mb-6 flex rounded-lg bg-atoms-dark p-1">
             {(["login", "register"] as const).map((t) => (
               <button
@@ -107,18 +104,17 @@ function LoginForm() {
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                {t === "login" ? "Sign In" : "Sign Up"}
+                {t === "login" ? "登录" : "注册"}
               </button>
             ))}
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
               <Input
                 type="email"
-                placeholder="Email"
+                placeholder="邮箱"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10"
@@ -138,7 +134,7 @@ function LoginForm() {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                     <Input
                       type="text"
-                      placeholder="Username"
+                      placeholder="用户名"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className="pl-10"
@@ -153,7 +149,7 @@ function LoginForm() {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
               <Input
                 type="password"
-                placeholder="Password"
+                placeholder="密码"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10"
@@ -173,13 +169,13 @@ function LoginForm() {
             )}
 
             <Button type="submit" loading={loading} className="w-full">
-              {tab === "login" ? "Sign In" : "Create Account"}
+              {tab === "login" ? "登录" : "注册"}
             </Button>
           </form>
 
           <div className="relative my-5">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-atoms-border" /></div>
-            <div className="relative flex justify-center text-xs"><span className="bg-atoms-card px-2 text-zinc-500">or</span></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-atoms-card px-2 text-zinc-500">或</span></div>
           </div>
 
           <Button
@@ -189,11 +185,11 @@ function LoginForm() {
             className="w-full flex items-center justify-center gap-2"
           >
             <Zap className="h-4 w-4" />
-            Try as Guest — No Registration Required
+            游客体验 — 免注册
           </Button>
 
           <div className="mt-4 rounded-lg bg-white/3 border border-white/6 px-3 py-2.5 text-center">
-            <p className="text-[11px] text-zinc-500 mb-1">Demo Test Account (Reviewer)</p>
+            <p className="text-[11px] text-zinc-500 mb-1">演示测试账号（评审专用）</p>
             <p className="text-xs text-zinc-300 font-mono">demo@atoms-demo.app / demo2024</p>
           </div>
         </div>

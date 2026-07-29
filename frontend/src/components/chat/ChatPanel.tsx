@@ -13,6 +13,8 @@ import { CheckCircle2, Loader2, ChevronDown, ChevronRight, Square, Sparkles, Cod
 
 interface ChatPanelProps {
   projectId: string;
+  prefillText?: string;
+  onPrefillConsumed?: () => void;
 }
 
 function getAgentEmoji(name: string): string {
@@ -119,7 +121,7 @@ function WorkingIndicator({ agentName }: { agentName: string }) {
   );
 }
 
-export function ChatPanel({ projectId }: ChatPanelProps) {
+export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPanelProps) {
   const { messages, isStreaming, addMessage, updateLastAgentMessage, setStreaming, currentMode, setMode } =
     useChatStore();
   const { setPreviewHtml, consoleErrors, clearConsoleErrors } = usePreviewStore();
@@ -519,7 +521,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           </div>
         )}
       </div>
-      <ChatInput onSend={handleSend} onStop={isStreaming ? handleStop : undefined} />
+      <ChatInput onSend={handleSend} onStop={isStreaming ? handleStop : undefined} prefillText={prefillText} onPrefillConsumed={onPrefillConsumed} />
     </div>
   );
 }
