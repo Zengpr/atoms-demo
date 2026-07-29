@@ -153,7 +153,8 @@ export async function* streamChat(
   content: string,
   mode: ChatMode,
   consoleErrors?: string[],
-  fileContexts?: { name: string; content: string; type: string; size: number }[]
+  fileContexts?: { name: string; content: string; type: string; size: number }[],
+  signal?: AbortSignal
 ): AsyncGenerator<SSEMessage> {
   const token = getToken();
   const body: Record<string, unknown> = { content, mode };
@@ -170,6 +171,7 @@ export async function* streamChat(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok) {

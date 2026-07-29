@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Monitor, Tablet, Smartphone, RotateCw, ExternalLink, Rocket, FolderTree, Eye, AlertTriangle, X } from "lucide-react";
+import { Monitor, Tablet, Smartphone, RotateCw, ExternalLink, Rocket, FolderTree, Eye, AlertTriangle, X, Code2, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePreviewStore } from "@/lib/store";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { motion } from "framer-motion";
 
 type Viewport = "desktop" | "tablet" | "mobile";
 type RightView = "preview" | "files";
 
-const VIEWPORT_WIDTHS: Record<Viewport, string> = {
-  desktop: "100%",
-  tablet: "768px",
-  mobile: "375px",
+const VIEWPORT_CONFIG: Record<Viewport, { width: string; label: string }> = {
+  desktop: { width: "100%", label: "桌面端" },
+  tablet: { width: "768px", label: "平板" },
+  mobile: { width: "375px", label: "移动端" },
 };
 
 interface VirtualFile {
@@ -108,38 +108,44 @@ window.addEventListener('unhandledrejection',function(e){
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-atoms-border bg-atoms-card px-3 py-2">
-        <div className="flex items-center gap-1">
-          {([["desktop", Monitor], ["tablet", Tablet], ["mobile", Smartphone]] as const).map(
-            ([v, Icon]) => (
+      <div className="flex items-center justify-between border-b border-atoms-border bg-atoms-card/50 px-3 py-1.5">
+        <div className="flex items-center gap-0.5 rounded-lg bg-atoms-dark/60 p-0.5">
+          {(["desktop", "tablet", "mobile"] as const).map((v) => {
+            const icons = { desktop: Monitor, tablet: Tablet, mobile: Smartphone };
+            const Icon = icons[v];
+            return (
               <button
                 key={v}
                 onClick={() => setViewport(v)}
                 className={cn(
-                  "rounded-lg p-1.5 transition-colors",
+                  "rounded-md px-2 py-1 text-[11px] font-medium transition-all flex items-center gap-1",
                   viewport === v
-                    ? "bg-atoms-accent/20 text-atoms-accent-hover"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                    ? "bg-atoms-accent/20 text-atoms-accent-hover shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-300"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5" />
+                {VIEWPORT_CONFIG[v].label}
               </button>
-            )
-          )}
+            );
+          })}
         </div>
         <div className="flex items-center gap-1">
           {consoleErrors.length > 0 && (
             <button
               onClick={() => setShowConsole(!showConsole)}
               className={cn(
-                "rounded-lg p-1.5 transition-colors",
+                "rounded-lg p-1.5 transition-colors relative",
                 showConsole
                   ? "bg-red-500/20 text-red-400"
                   : "text-red-400 hover:bg-red-500/10"
               )}
-              title={`${consoleErrors.length} console errors`}
+              title={`${consoleErrors.length} 个控制台错误`}
             >
               <AlertTriangle className="h-4 w-4" />
+              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">
+                {consoleErrors.length}
+              </span>
             </button>
           )}
           <button
@@ -150,7 +156,7 @@ window.addEventListener('unhandledrejection',function(e){
                 ? "bg-atoms-accent/20 text-atoms-accent-hover"
                 : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
             )}
-            title="Files"
+            title="项目文件"
           >
             <FolderTree className="h-4 w-4" />
           </button>
@@ -162,29 +168,33 @@ window.addEventListener('unhandledrejection',function(e){
                 ? "bg-atoms-accent/20 text-atoms-accent-hover"
                 : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
             )}
-            title="Preview"
+            title="预览"
           >
             <Eye className="h-4 w-4" />
           </button>
+          <div className="h-4 w-px bg-atoms-border mx-0.5" />
           <button
             onClick={handleRefresh}
             className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors"
+            title="刷新预览"
           >
             <RotateCw className="h-4 w-4" />
           </button>
           <button
             onClick={handleOpenNew}
             className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors"
+            title="在新标签页中打开"
           >
             <ExternalLink className="h-4 w-4" />
           </button>
           {onDeploy && (
             <>
+              <div className="h-4 w-px bg-atoms-border mx-0.5" />
               <button
                 onClick={onDeploy}
                 disabled={deploying}
                 className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/5 disabled:opacity-50"
-                title="Deploy"
+                title="部署"
               >
                 <Rocket className="h-4 w-4" />
               </button>
@@ -198,9 +208,10 @@ window.addEventListener('unhandledrejection',function(e){
 
       <div className="flex-1 min-h-0 flex">
         {rightView === "files" && files.length > 0 && (
-          <div className="w-48 flex-shrink-0 border-r border-atoms-border bg-atoms-card overflow-y-auto">
-            <div className="px-3 py-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
-              Project Files
+          <div className="w-52 flex-shrink-0 border-r border-atoms-border bg-atoms-card overflow-y-auto">
+            <div className="px-3 py-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="h-3 w-3" />
+              项目文件
             </div>
             {files.map((file) => (
               <button
@@ -213,7 +224,7 @@ window.addEventListener('unhandledrejection',function(e){
                     : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
                 )}
               >
-                <span className="flex-shrink-0 text-[10px]">{file.icon}</span>
+                <Code2 className="h-3.5 w-3.5 flex-shrink-0 text-zinc-600" />
                 <span className="truncate">{file.name}</span>
               </button>
             ))}
@@ -223,20 +234,30 @@ window.addEventListener('unhandledrejection',function(e){
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0">
             {rightView === "preview" ? (
-              <div className="h-full bg-zinc-900 p-4 overflow-auto flex justify-center">
+              <div className="h-full bg-zinc-900/50 p-4 overflow-auto flex justify-center items-start">
                 {!previewHtml ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                    <Skeleton className="w-3/4 h-8" />
-                    <Skeleton className="w-1/2 h-6" />
-                    <Skeleton className="w-2/3 h-32" />
-                    <p className="text-sm text-zinc-600 mt-2">
-                      Preview will appear here when code is generated
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="w-full h-full flex flex-col items-center justify-center gap-3"
+                  >
+                    <div className="relative mb-2">
+                      <div className="w-20 h-20 rounded-2xl bg-atoms-card border border-atoms-border flex items-center justify-center">
+                        <Code2 className="h-8 w-8 text-zinc-700" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-atoms-accent/20 border border-atoms-accent/30 flex items-center justify-center">
+                        <Eye className="h-3 w-3 text-atoms-accent-hover" />
+                      </div>
+                    </div>
+                    <p className="text-sm text-zinc-500 font-medium">等待代码生成</p>
+                    <p className="text-xs text-zinc-600 max-w-[200px] text-center leading-relaxed">
+                      在左侧描述你想构建的产品，代码生成后将在此处预览
                     </p>
-                  </div>
+                  </motion.div>
                 ) : (
                   <div
-                    className="h-full bg-white rounded-lg overflow-hidden shadow-2xl transition-all duration-300"
-                    style={{ width: VIEWPORT_WIDTHS[viewport] }}
+                    className="h-full bg-white rounded-lg overflow-hidden shadow-2xl shadow-black/30 transition-all duration-300 ring-1 ring-white/5"
+                    style={{ width: VIEWPORT_CONFIG[viewport].width }}
                   >
                     <iframe
                       ref={iframeRef}
@@ -253,13 +274,14 @@ window.addEventListener('unhandledrejection',function(e){
               <div className="h-full bg-zinc-950 overflow-auto">
                 {!currentFile ? (
                   <div className="flex items-center justify-center h-full text-sm text-zinc-600">
-                    No file selected
+                    请选择文件查看
                   </div>
                 ) : (
                   <div className="relative">
                     <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-atoms-border bg-zinc-900/80 backdrop-blur px-4 py-1.5">
+                      <Code2 className="h-3.5 w-3.5 text-zinc-500" />
                       <span className="text-xs font-medium text-zinc-300">{currentFile.name}</span>
-                      <span className="text-[10px] text-zinc-600 ml-auto">{currentFile.content.split("\n").length} lines</span>
+                      <span className="text-[10px] text-zinc-600 ml-auto">{currentFile.content.split("\n").length} 行</span>
                     </div>
                     <pre className="p-4 text-[13px] leading-relaxed font-mono text-zinc-300 overflow-x-auto">
                       <code>{currentFile.content}</code>
@@ -274,14 +296,14 @@ window.addEventListener('unhandledrejection',function(e){
             <div className="border-t border-red-500/30 bg-zinc-950 max-h-40 overflow-y-auto">
               <div className="flex items-center justify-between px-3 py-1.5 bg-red-500/10 border-b border-red-500/20">
                 <span className="text-xs font-medium text-red-400">
-                  Console Errors ({consoleErrors.length})
+                  控制台错误 ({consoleErrors.length})
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => clearConsoleErrors()}
                     className="text-xs text-zinc-500 hover:text-zinc-300 px-1"
                   >
-                    Clear
+                    清除
                   </button>
                   <button
                     onClick={() => setShowConsole(false)}
@@ -295,7 +317,7 @@ window.addEventListener('unhandledrejection',function(e){
                 <div key={i} className="px-3 py-1.5 text-xs border-b border-atoms-border/50">
                   <span className="text-red-400">{err.message}</span>
                   {err.line ? (
-                    <span className="text-zinc-600 ml-2">line {err.line}</span>
+                    <span className="text-zinc-600 ml-2">行 {err.line}</span>
                   ) : null}
                 </div>
               ))}

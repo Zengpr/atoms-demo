@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/types";
 import { getAgentByName, getAgentColor } from "@/lib/agents";
@@ -81,21 +81,27 @@ function ActionItem({ label, secondary, status, icon }: ActionItemProps) {
   );
 }
 
-function AgentAvatar({ name, size = 32 }: { name: string; size?: number }) {
+function AgentAvatar({ name, size = 28 }: { name: string; size?: number }) {
   const agent = getAgentByName(name);
   const agentColor = getAgentColor(name);
 
   if (agent?.avatarUrl) {
     return (
-      <Image
-        src={agent.avatarUrl}
-        alt={agent.name}
-        width={size}
-        height={size}
-        className="agent-avatar-img"
-        style={{ borderColor: `${agentColor}40` }}
-        unoptimized
-      />
+      <div className="relative">
+        <div
+          className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-30 transition-opacity blur-sm"
+          style={{ backgroundColor: agentColor }}
+        />
+        <Image
+          src={agent.avatarUrl}
+          alt={agent.name}
+          width={size}
+          height={size}
+          className="agent-avatar-img"
+          style={{ borderColor: `${agentColor}50`, borderWidth: 2 }}
+          unoptimized
+        />
+      </div>
     );
   }
 
@@ -106,7 +112,8 @@ function AgentAvatar({ name, size = 32 }: { name: string; size?: number }) {
         width: size,
         height: size,
         backgroundColor: `${agentColor}20`,
-        borderColor: `${agentColor}40`,
+        borderColor: `${agentColor}50`,
+        boxShadow: `0 0 8px ${agentColor}15`,
       }}
     >
       {agent?.avatarEmoji ?? "\u{1F916}"}
@@ -207,9 +214,9 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.15 }}
-        className="flex justify-end px-4 py-1"
+        className="flex justify-end px-4 py-1.5"
       >
-        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-atoms-accent px-4 py-2.5">
+        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-gradient-to-br from-atoms-accent to-atoms-accent-hover px-4 py-2.5 shadow-lg shadow-atoms-accent/10">
           <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{message.content}</p>
           <p className="text-[10px] text-white/40 text-right mt-1">{format(new Date(message.createdAt), "HH:mm")}</p>
         </div>
@@ -222,12 +229,12 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15 }}
-      className="message-group-enter px-4 py-1"
+      className="message-group-enter px-4 py-1 group"
     >
       {message.agentName && (
         <div className="flex items-center gap-2 h-8 mb-1">
-          <AgentAvatar name={message.agentName} size={24} />
-          <span className="text-xs font-medium" style={{ color: agentColor }}>
+          <AgentAvatar name={message.agentName} size={22} />
+          <span className="text-xs font-semibold tracking-wide" style={{ color: agentColor }}>
             {agent?.name ?? message.agentName}
           </span>
           <div className="h-3 w-px bg-white/10" />
@@ -238,7 +245,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         </div>
       )}
 
-      <div className="pl-9">
+      <div className="pl-8">
         {thinkingData && !streamText && (
           <div className="think-merge-container mb-2">
             <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -255,21 +262,34 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         {streamText && (
           <div className="think-merge-container mb-2">
             <div className="flex items-center justify-between mb-1">
-               <span className="text-[11px] text-zinc-500">思考中</span>
-               <button
-                 onClick={() => setThinkExpanded(!thinkExpanded)}
-                 className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-               >
-                 {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                 {thinkExpanded ? "收起" : "展开"}
-               </button>
-            </div>
-            {thinkExpanded && (
-              <div className="text-sm text-zinc-300 leading-relaxed mb-1">
-                {streamText.slice(0, 500)}
-                {streamText.length > 500 && "..."}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-500 font-medium">思考中</span>
+                <span className="h-1 w-1 rounded-full bg-atoms-accent animate-pulse-glow" />
               </div>
-            )}
+              <button
+                onClick={() => setThinkExpanded(!thinkExpanded)}
+                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors rounded px-1.5 py-0.5 hover:bg-white/5"
+              >
+                {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                {thinkExpanded ? "收起" : "查看详情"}
+              </button>
+            </div>
+            <AnimatePresence>
+              {thinkExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="text-sm text-zinc-300 leading-relaxed mb-1">
+                    {streamText.slice(0, 800)}
+                    {streamText.length > 800 && "..."}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <span className="inline-block w-1.5 h-4 animate-pulse rounded-sm" style={{ backgroundColor: agentColor, opacity: 0.6 }} />
           </div>
         )}
@@ -277,46 +297,53 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         {isAction && actionItems.length > 0 && (
           <div className="think-merge-container mb-2">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-medium text-zinc-300">{message.content.split("\n")[0]}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-zinc-200">{message.content.split("\n")[0]}</span>
+              </div>
               <button
                 onClick={() => setThinkExpanded(!thinkExpanded)}
-                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors rounded px-1.5 py-0.5 hover:bg-white/5"
               >
                 {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {thinkExpanded ? "收起" : `${actionItems.length} 个操作`}
+                {thinkExpanded ? "收起" : `查看详情（${actionItems.length}）`}
               </button>
             </div>
-            {!thinkExpanded && (
-              <div className="space-y-0.5">
-                {actionItems.slice(0, 3).map((item, i) => (
-                  <ActionItem key={i} {...item} />
-                ))}
-                {actionItems.length > 3 && (
-                  <div className="text-[11px] text-zinc-500 pl-4">+{actionItems.length - 3} more...</div>
-                )}
-              </div>
-            )}
-            {thinkExpanded && (
-              <>
+            <AnimatePresence>
+              {!thinkExpanded ? (
                 <div className="space-y-0.5">
-                  {actionItems.map((item, i) => (
+                  {actionItems.slice(0, 3).map((item, i) => (
                     <ActionItem key={i} {...item} />
                   ))}
+                  {actionItems.length > 3 && (
+                    <div className="text-[11px] text-zinc-500 pl-4">+{actionItems.length - 3} 项更多...</div>
+                  )}
                 </div>
-                {message.content && (
-                  <div className="mt-2 p-2.5 rounded-lg bg-white/3 border border-white/6 text-xs text-zinc-300 leading-relaxed whitespace-pre-line max-h-64 overflow-y-auto">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {message.content}
-                    </ReactMarkdown>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="space-y-0.5">
+                    {actionItems.map((item, i) => (
+                      <ActionItem key={i} {...item} />
+                    ))}
                   </div>
-                )}
-              </>
-            )}
+                  {message.content && (
+                    <div className="mt-2.5 p-3 rounded-lg bg-white/3 border border-white/6 text-xs text-zinc-300 leading-relaxed whitespace-pre-line max-h-72 overflow-y-auto scrollbar-thin">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
         {isAction && actionItems.length === 0 && message.content && (
-          <div className="rounded-lg px-3 py-2 text-sm text-zinc-200 leading-relaxed whitespace-pre-line border-l-2" style={{ borderColor: `${agentColor}60`, backgroundColor: `${agentColor}08` }}>
+          <div className="rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 leading-relaxed whitespace-pre-line border-l-2 backdrop-blur-sm" style={{ borderColor: `${agentColor}60`, backgroundColor: `${agentColor}08` }}>
             {message.content}
           </div>
         )}
@@ -330,8 +357,8 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
         )}
 
         {showIterationHints && onSuggestionClick && (
-          <div className="mt-3 pt-2 border-t border-white/5">
-            <div className="text-[10px] text-zinc-500 mb-1.5">继续迭代：</div>
+          <div className="mt-3 pt-2.5 border-t border-white/5">
+            <div className="text-[10px] text-zinc-500 mb-1.5 font-medium">继续迭代：</div>
             <div className="flex flex-wrap gap-1.5">
               {ITERATION_SUGGESTIONS.map((s) => (
                 <button

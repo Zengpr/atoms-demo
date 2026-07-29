@@ -9,7 +9,7 @@ import { streamChat } from "@/lib/api";
 import type { Message, ApprovalRequest } from "@/lib/types";
 import { AGENTS, WORKFLOW_STEPS, getAgentColor, getAgentByName } from "@/lib/agents";
 import Image from "next/image";
-import { CheckCircle2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, Loader2, ChevronDown, ChevronRight, Square, Sparkles, Code2, Users, Zap, Microscope } from "lucide-react";
 
 interface ChatPanelProps {
   projectId: string;
@@ -101,18 +101,20 @@ function WorkingIndicator({ agentName }: { agentName: string }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="working-indicator py-2"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      className="px-4 py-2.5"
     >
-      {agent?.avatarUrl ? (
-        <Image src={agent.avatarUrl} alt={agentName} width={16} height={16} className="rounded-full" unoptimized />
-      ) : (
-        <div className="h-4 w-4 rounded-full" style={{ backgroundColor: `${agentColor}30` }} />
-      )}
-      <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: agentColor }} />
-      <span>{agentName} 正在工作中...</span>
+      <div className="flex items-center gap-2.5 rounded-xl bg-white/3 border border-white/6 px-3 py-2">
+        {agent?.avatarUrl ? (
+          <Image src={agent.avatarUrl} alt={agentName} width={20} height={20} className="rounded-full" unoptimized />
+        ) : (
+          <div className="h-5 w-5 rounded-full" style={{ backgroundColor: `${agentColor}30` }} />
+        )}
+        <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: agentColor }} />
+        <span className="text-xs text-zinc-400">{agentName} 正在工作中...</span>
+      </div>
     </motion.div>
   );
 }
@@ -122,6 +124,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     useChatStore();
   const { setPreviewHtml, consoleErrors, clearConsoleErrors } = usePreviewStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
   const approvalResolveRef = useRef<(() => void) | null>(null);
   const [workflowTracker, setWorkflowTracker] = useState<{
@@ -138,13 +141,21 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     }
   }, [messages]);
 
+  const handleStop = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setStreaming(false);
+  }, [setStreaming]);
+
   const handleSend = useCallback(
     async (content: string, fileContexts?: { name: string; content: string; type: string; size: number }[]) => {
       const userMsg: Message = {
         id: crypto.randomUUID(),
         conversationId: projectId,
         role: "user",
-        content: fileContexts && fileContexts.length > 0 ? `${content}\n\n📎 Attached: ${fileContexts.map(f => f.name).join(", ")}` : content,
+        content: fileContexts && fileContexts.length > 0 ? `${content}\n\n📎 附件: ${fileContexts.map(f => f.name).join(", ")}` : content,
         createdAt: new Date().toISOString(),
       };
       addMessage(userMsg);
@@ -152,8 +163,11 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       setPendingApproval(null);
       setWorkflowTracker(null);
 
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+
       const errorMessages = consoleErrors.map(
-        (e) => `${e.message}${e.line ? ` (line ${e.line})` : ""}`
+        (e) => `${e.message}${e.line ? ` (行 ${e.line})` : ""}`
       );
       clearConsoleErrors();
 
@@ -169,7 +183,9 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       }
 
       try {
-        for await (const sse of streamChat(projectId, content, currentMode, errorMessages, fileContexts)) {
+        for await (const sse of streamChat(projectId, content, currentMode, errorMessages, fileContexts, abortController.signal)) {
+          if (abortController.signal.aborted) break;
+
           const agentName = (sse.data.agent as string) ?? "System";
           const emoji = getAgentEmoji(agentName);
           const role = getAgentRole(agentName);
@@ -191,7 +207,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 thinking: true,
                 emoji,
                 role,
-                message: `${agentName} is thinking...`,
+                message: `${agentName} 正在思考...`,
                 streamText: "",
                 hideStream,
               },
@@ -273,7 +289,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 const p = typeof plan === "string" ? JSON.parse(plan) : plan;
                 const planSummary = p?.plan ?? p?.summary ?? "";
                 const steps = p?.steps ?? [];
-                const stepList = steps.map((s: Record<string, unknown>, i: number) => `${i + 1}. ${s.agent ?? "agent"}\uFF1A${s.task ?? ""}`).join("\n");
+                const stepList = steps.map((s: Record<string, unknown>, i: number) => `${i + 1}. ${s.agent ?? "agent"}：${s.task ?? ""}`).join("\n");
                 richContent = planSummary ? `${planSummary}\n\n${stepList}` : stepList;
                 if (isTeamMode) {
                   stepStatuses["plan"] = "done";
@@ -344,7 +360,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             });
           }
         }
-        if (!receivedComplete) {
+        if (!receivedComplete && !abortController.signal.aborted) {
           addMessage({
             id: crypto.randomUUID(),
             conversationId: projectId,
@@ -354,7 +370,8 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             createdAt: new Date().toISOString(),
           });
         }
-      } catch {
+      } catch (err) {
+        if (abortController.signal.aborted) return;
         addMessage({
           id: crypto.randomUUID(),
           conversationId: projectId,
@@ -367,6 +384,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         setStreaming(false);
         setPendingApproval(null);
         approvalResolveRef.current = null;
+        abortRef.current = null;
       }
     },
     [projectId, addMessage, updateLastAgentMessage, setStreaming, setPreviewHtml, currentMode, clearConsoleErrors, consoleErrors]
@@ -444,44 +462,49 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                 onClick={handleApprovalContinue}
                 className="rounded-lg bg-atoms-accent px-5 py-2 text-sm font-medium text-white hover:bg-atoms-accent-hover transition-all hover:shadow-lg hover:shadow-atoms-accent/20"
               >
-                  继续
+                继续
               </button>
             </div>
           </motion.div>
         )}
         {messages.length === 0 && !isStreaming && (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
-            <div className="flex items-center -space-x-2 mb-5">
-              {AGENTS.slice(0, 5).map((a) => (
-                <div
-                  key={a.name}
-                  className="relative"
-                  style={{ zIndex: 5 - AGENTS.indexOf(a) }}
-                >
-                  <Image
-                    src={a.avatarUrl}
-                    alt={a.name}
-                    width={40}
-                    height={40}
-                    className="agent-avatar-img"
-                    style={{ borderColor: `${a.color}50`, borderWidth: 2 }}
-                    unoptimized
-                  />
-                </div>
-              ))}
+            <div className="relative mb-6">
+              <div className="flex items-center -space-x-3">
+                {AGENTS.slice(0, 5).map((a, i) => (
+                  <div
+                    key={a.name}
+                    className="relative"
+                    style={{ zIndex: 5 - i }}
+                  >
+                    <Image
+                      src={a.avatarUrl}
+                      alt={a.name}
+                      width={44}
+                      height={44}
+                      className="agent-avatar-img"
+                      style={{ borderColor: `${a.color}50`, borderWidth: 2.5 }}
+                      unoptimized
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="absolute -top-2 -right-2">
+                <Sparkles className="h-5 w-5 text-atoms-accent animate-pulse" />
+              </div>
             </div>
             <h3 className="text-lg font-semibold text-zinc-200 mb-1.5">
-              AI 团队就绪
+              AI 团队已就绪
             </h3>
-            <p className="text-sm text-zinc-500 max-w-xs mb-5 leading-relaxed">
-              描述你想构建什么。Mike协调团队，Emma编写PRD，Bob设计架构，Alex实现代码。
+            <p className="text-sm text-zinc-500 max-w-xs mb-6 leading-relaxed">
+              描述你想构建的产品。Mike 协调团队，Emma 编写 PRD，Bob 设计架构，Alex 实现代码。
             </p>
             <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
               {[
-                { emoji: "\u{1F3AE}", text: "Super Mario-style platformer game" },
-                { emoji: "\u{1F4CA}", text: "Data dashboard with charts and stats" },
-                { emoji: "\u{1F6D2}", text: "E-commerce product showcase page" },
-                { emoji: "\u{1F3A8}", text: "Creative portfolio website" },
+                { emoji: "\u{1F3AE}", text: "超级马里奥风格平台跳跃游戏" },
+                { emoji: "\u{1F4CA}", text: "带图表和统计的数据看板" },
+                { emoji: "\u{1F6D2}", text: "电商产品展示页面" },
+                { emoji: "\u{1F3A8}", text: "创意作品集网站" },
               ].map(({ emoji, text }) => (
                 <button
                   key={text}
@@ -496,7 +519,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           </div>
         )}
       </div>
-      <ChatInput onSend={handleSend} />
+      <ChatInput onSend={handleSend} onStop={isStreaming ? handleStop : undefined} />
     </div>
   );
 }

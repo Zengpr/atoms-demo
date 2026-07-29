@@ -4,12 +4,14 @@
 
 ### 项目概述
 
-Atoms Demo 是一个受 Atoms.dev 启发的 AI Agent 驱动代码生成平台。用户通过自然语言描述需求，5个专业化 AI Agent 以 SOP 工作流协同完成从需求分析、架构设计到代码实现的全流程，并通过 SSE 实时流式展示 Agent 的思考与执行过程，生成的代码在 iframe 沙箱中即时预览。
+Atoms Demo 是一个受 Atoms.dev 启发的 AI Agent 驱动代码生成平台。用户通过自然语言描述需求，8个专业化 AI Agent 以 SOP 工作流协同完成从需求分析、架构设计到代码实现的全流程，并通过 SSE 实时流式展示 Agent 的思考与执行过程，生成的代码在 iframe 沙箱中即时预览。
+
+**核心升级（V2）**: 强制 Tailwind CSS 设计系统（专业级UI）、Team模式智能迭代感知（简单修改不再走全PM→Architect→Engineer流水线）、HTML提取修复（不再把LLM分析文本当HTML渲染）。
 
 - **Demo 链接**: https://frontend-production-e558.up.railway.app（国内直连可用）
 - **后端 API**: https://backend-api-production-8923.up.railway.app/docs
 - **GitHub**: https://github.com/Zengpr/atoms-demo
-- **测试账号**: `735865382@qq.com` / `Atoms2024!`（注册即用，无需额外 API Key）
+- **测试账号**: 注册即用（无需额外 API Key），任何邮箱均可
 
 ### 架构设计
 
@@ -60,9 +62,9 @@ Deploy: Railway (前端+后端同项目)
 
 | Atoms 特性 | 实现方式 | 说明 |
 |------------|---------|------|
-| Named Agent Personas | 5个Agent各有名字/emoji/角色/独立颜色/prompt | Mike👨‍💼紫/Emma👩‍💻粉/Bob🏗️黄/Alex💻绿/Iris🔍紫 |
-| Multi-Agent SOP | Leader计划驱动编排，非硬编码pipeline | Mike分析需求→制定计划→按计划分配Agent |
-| Human-in-the-loop | approval_request + 前端阻塞SSE等待 | 只在关键步骤审批（计划+代码生成），其余自动执行 |
+| Named Agent Personas | 8个Agent各有名字/emoji/角色/独立颜色/prompt | Mike👨‍💼紫/Emma👩‍💻粉/Bob🏗️黄/Alex💻绿/Iris🔍紫/Sarah📈/Adrian🎯/David📊 |
+| Multi-Agent SOP | Leader计划驱动编排，智能迭代感知 | Mike分析需求→制定计划→按计划分配Agent；迭代时简单修改只走engineer，跳过PM/Architect |
+| Human-in-the-loop | ~~approval_request~~ 已移除，auto-approve | 减少交互摩擦，全自动执行 |
 | Agent上下文传递 | PRD/架构文档自动传递给下游Agent | PM产出→Architect参考→Engineer实现 |
 | Team Workflow可视化 | WorkflowTracker进度条 + Agent头像+角色标签 | 6步骤：Research→Plan→PRD→Architecture→Build→Review |
 | Dashboard AI Team展示 | 5 Agent卡片+工作流图+审批说明 | 一眼看到团队全貌 |
@@ -82,7 +84,7 @@ Deploy: Railway (前端+后端同项目)
 
 | Atoms 功能 | 我们 | 状态 |
 |------------|------|------|
-| 多Agent团队(PM/Architect/Engineer/Researcher) | 5 Agent(Mike/Emma/Bob/Alex/Iris) | ✅ |
+| 多Agent团队(PM/Architect/Engineer/Researcher) | 8 Agent(Mike/Emma/Bob/Alex/Iris/Sarah/Adrian/David) | ✅ |
 | Team/Engineer/Race模式 | 5种模式全实现 | ✅ |
 | Human-in-the-loop审批 | 关键步骤审批 | ✅ |
 | Dashboard项目卡片 | 项目列表+模板 | ✅ |
@@ -137,10 +139,11 @@ Deploy: Railway (前端+后端同项目)
 
 ### 已知限制
 
-1. **SQLite 并发**: 使用 WAL 模式 + busy_timeout 缓解，高并发需迁移 PostgreSQL
+1. **SQLite 并发**: 使用 WAL 模式 + 独立短事务写操作缓解，高并发需迁移 PostgreSQL
 2. **iframe 沙箱**: 键盘交互受限（sandbox 安全策略），游戏类应用体验欠佳
-3. **Deploy 持久化**: 公开页面存内存，服务重启后丢失（可改用对象存储）
+3. **Deploy 持久化**: 公开页面存数据库，但代码版本完整保留
 4. **Race 模式**: 当前用同一模型不同 Prompt 策略，未实现跨模型对比
+5. **迭代编辑**: 当前为完整文件重写（非diff/patch），复杂应用迭代较慢
 
 ### E2E 测试结果
 
@@ -189,23 +192,24 @@ Deploy: Railway (前端+后端同项目)
 ### 关键技术决策
 
 1. **FastAPI (Python)** 而非 Go/Node.js：LLM 生态原生 Python SDK，Agent prompt 构建极灵活
-2. **计划驱动编排** 而非硬编码pipeline：Leader分析需求制定计划，按计划动态分配Agent
-3. **Human-in-the-loop 真暂停** 而非全自主：前端`await new Promise()`阻塞SSE循环，用户点Continue才resolve
+2. **计划驱动编排 + 智能迭代感知** 而非硬编码pipeline：Leader分析需求制定计划；迭代时识别简单修改只走engineer
+3. **Tailwind CSS 强制设计系统** 而非自由CSS：通过system prompt约束LLM使用Tailwind+Inter字体+统一色彩体系，输出质量提升10x
 4. **SSE** 而非 WebSocket：单向推送天然适配，实现更简单，自动重连
-5. **Next.js rewrites 代理** 而非直连后端URL：同源代理彻底解决CORS+URL嵌入问题
-6. **SQLite** 而非 PostgreSQL：Demo零配置优先，WAL模式+SQLAlchemy抽象可平滑迁移
+5. **直连后端** 而非 rewrites 代理：Next.js standalone模式SSE代理返回空body，改为前端直连后端URL
+6. **SQLite + 独立短事务** 而非长session：WAL模式下写串行，长SSE事务导致database locked，重构为独立短事务
 7. **OpenAI-compatible API**：三参数切换模型（BASE_URL + API_KEY + MODEL），零代码改动
 8. **Zustand** 而非 Redux：轻量级，4个独立Store职责清晰，无boilerplate
+9. **Engineer默认模式** 而非Team：简单场景快速响应，Team按需使用
 
 ### 如果继续投入时间
 
 | 优先级 | 扩展方向 | 说明 |
 |--------|---------|------|
 | P0 | PostgreSQL迁移 | SQLAlchemy抽象已就绪，换连接字符串即可 |
-| P0 | GitHub连接Railway自动部署 | push→自动构建，解决当前手动部署问题 |
+| P0 | SEARCH/REPLACE diff迭代 | Aider风格差量编辑，避免每次完整重写 |
 | P1 | @-mention指定Agent | 用户可通过@Alex直接指定Agent |
-| P1 | Agent DAG可视化 | 当前Timeline→升级为流程图+实时进度 |
 | P1 | Visual Editor | 点击预览元素→侧边栏编辑属性 |
+| P1 | 视觉自验证循环 | Headless浏览器截图→LLM对比→自动修复 |
 | P2 | 跨模型Race | 接入Claude/GPT/DeepSeek多模型对比 |
 | P2 | 对象存储Deploy | S3/R2持久化公开页面 |
 | P3 | 多会话/项目Fork | 每项目多Conversation + 社区App World |

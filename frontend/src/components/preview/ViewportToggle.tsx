@@ -11,27 +11,28 @@ interface ViewportToggleProps {
 }
 
 const OPTIONS: { value: Viewport; icon: typeof Monitor; label: string }[] = [
-  { value: "desktop", icon: Monitor, label: "Desktop" },
-  { value: "tablet", icon: Tablet, label: "Tablet" },
-  { value: "mobile", icon: Smartphone, label: "Mobile" },
+  { value: "desktop", icon: Monitor, label: "桌面端" },
+  { value: "tablet", icon: Tablet, label: "平板" },
+  { value: "mobile", icon: Smartphone, label: "移动端" },
 ];
 
 export function ViewportToggle({ value, onChange }: ViewportToggleProps) {
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-atoms-dark p-1">
+    <div className="flex items-center gap-0.5 rounded-lg bg-atoms-dark/60 p-0.5 border border-atoms-border/50">
       {OPTIONS.map(({ value: v, icon: Icon, label }) => (
         <button
           key={v}
           onClick={() => onChange(v)}
           title={label}
           className={cn(
-            "rounded-md p-1.5 transition-colors",
+            "rounded-md px-2 py-1.5 transition-all flex items-center gap-1",
             value === v
-              ? "bg-atoms-accent/20 text-atoms-accent-hover"
+              ? "bg-atoms-accent/20 text-atoms-accent-hover shadow-sm"
               : "text-zinc-500 hover:text-zinc-300"
           )}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-3.5 w-3.5" />
+          <span className="text-[11px] font-medium">{label}</span>
         </button>
       ))}
     </div>
