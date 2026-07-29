@@ -280,7 +280,7 @@ export default function WorkspacePage() {
       {/* Left Panel - Chat */}
       <div
         className={cn(
-          "flex flex-col border-r border-atoms-border transition-all duration-300 relative",
+          "flex flex-col border-r border-atoms-border transition-all duration-300 relative min-h-0 overflow-hidden",
           leftOpen ? "" : "w-12 min-w-[48px]"
         )}
         style={leftOpen ? { width: leftWidth, minWidth: 280 } : undefined}

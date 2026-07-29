@@ -399,7 +399,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   }, []);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col min-h-0">
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto space-y-1 py-2 scrollbar-thin"
