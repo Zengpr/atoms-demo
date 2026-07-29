@@ -1,195 +1,150 @@
-# Atoms Demo - 项目计划书
+# Atoms Demo — Project Improvement Plan
 
-> 目标：实现一个可运行的类似 Atoms.dev 的 AI Agent 驱动式代码生成平台
-> 面试岗位：深度赋智 ROOT/AI Native 全栈工程师
-> 目标薪资：40k×15
+## Context
+- **Goal**: Build a polished, production-quality AI Agent code generation platform demo for 深度赋智 (ROOT) full-stack engineer interview
+- **Reference**: Atoms.dev (8 specialized agents, SOP collaboration, visual editor, Atoms Cloud)
+- **Deadline**: ASAP — 48h from task receipt
+- **Stakes**: 40k×15 salary position
 
 ---
 
-## 一、Atoms 平台核心能力分析
+## Phase 0: Critical Bug Fixes (MUST DO FIRST)
 
-### 1.1 核心功能矩阵
+### P0-1: Fix html_utils.py — Don't return raw text as HTML
+- **Root Cause**: `extract_html()` at line 26-28 treats ANY text containing `<div>` or `<body>` as HTML
+- **Effect**: When LLM outputs analysis text before code (e.g., "1. **Analysis** — <div> structure..."), the ENTIRE response including analysis is rendered as broken HTML → "layout disorder"
+- **Fix**: Only extract content between `<!DOCTYPE html>` or `<html>` tags; strip anything before the HTML start tag
+- **File**: `backend/app/utils/html_utils.py:26-28`
 
-| 功能 | Atoms实现 | Demo实现策略 | 优先级 |
-|------|-----------|-------------|--------|
-| Multi-Agent工作流 | 7角色SOP协作 | 4核心Agent(PM/Arch/Eng/Leader) | P0 |
-| 对话式代码生成 | 自然语言→完整Web应用 | LLM Streaming + Code Generation | P0 |
-| 实时预览(App Viewer) | iframe沙箱预览 | iframe + sandbox渲染 | P0 |
-| 模式切换 | Engineer/Team/Race/DeepResearch | Engineer/Team双模式 | P0 |
-| 可视化编辑 | 点击元素修改 | 代码编辑器 + 热更新预览 | P1 |
-| 一键部署/分享 | Atoms Cloud托管 | 预览链接分享 | P1 |
-| 用户系统 | 注册/登录/Credit | JWT Auth + SQLite | P0 |
-| 项目管理 | 项目列表/历史 | CRUD + 版本历史 | P0 |
-| 后端集成 | Atoms Cloud/Supabase | 内置轻量BaaS | P2 |
-| Race Mode | 多模型竞速 | 并行调用多模型对比 | P1 |
+### P0-2: Rewrite Engineer Agent Prompt
+- **Root Cause**: 
+  1. Contradictory instructions: "Do NOT explain" (line 39) vs "Output Analysis/Design/Implementation" (line 179)
+  2. No design system mandated — LLM invents generic inline styles → ugly output
+  3. Over-indexed on game requirements (50% of prompt is game-specific)
+  4. Iteration = full rebuild instead of targeted edit
+- **Fix**:
+  1. MANDATE Tailwind CSS via CDN + Inter font + specific design specs
+  2. Remove Analysis/Design/Implementation format — just output code
+  3. Add professional UI checklist (spacing, shadows, hover states, responsive)
+  4. For iteration: instruct LLM to make targeted changes, output full file but with minimal changes
+- **File**: `backend/app/agents/engineer.py`
 
-### 1.2 关键交互流程
+### P0-3: Fix Team Mode Iteration Awareness
+- **Root Cause**:
+  1. Leader has no iteration context — never sees `previous_code` or `is_iteration`
+  2. Leader fallback is hardcoded PM→Architect→Engineer even for "make button blue"
+  3. `is_iteration` not set in team mode context
+- **Fix**:
+  1. Pass `is_iteration` and `previous_code` to leader's think prompt
+  2. Instruct leader: for simple iterations, assign ONLY engineer (skip PM/Architect)
+  3. Set `context["is_iteration"]` in orchestrator for team mode
+- **Files**: `backend/app/agents/leader.py`, `backend/app/agents/orchestrator.py`
+
+---
+
+## Phase 1: Quality Improvements (SHOULD DO)
+
+### P1-1: Remove forced Chinese from code-generating agents
+- **Issue**: `base.py:65` appends "请始终用中文回复" to ALL agent system prompts
+- **Effect**: Degrades English code quality; LLMs write better HTML/CSS/JS when prompted in English
+- **Fix**: Keep Chinese for PM/Leader user-facing messages; remove from Engineer act prompt (already partially done)
+
+### P1-2: Default mode → engineer (not team)
+- **Issue**: `store.ts:101` defaults to "team" mode
+- **Effect**: Every new project starts with heavy multi-agent flow; simple requests get over-processed
+- **Fix**: Change default to "engineer"; user selects team mode when needed
+
+### P1-3: Fix API_BASE to use environment variables
+- **Issue**: `api.ts:3-4` hardcodes production URL
+- **Effect**: No dev/prod flexibility; all development hits production
+- **Fix**: Use `process.env.NEXT_PUBLIC_API_URL` with localhost fallback
+
+---
+
+## Phase 2: Polish & Innovation (NICE TO HAVE)
+
+### P2-1: Frontend UI Polish — Align with Atoms.dev UX
+- Mode selector with icons (Engineer/Team/Race/Research)
+- Agent @mention support in chat input
+- Stop generation button
+- Responsive viewport toggle (desktop/tablet/mobile)
+- Console error display with "Resolve" button
+
+### P2-2: SEARCH/REPLACE Diff Iteration Editing
+- Instead of full rebuild, use Aider-style SEARCH/REPLACE blocks
+- Token-efficient, faster iteration, preserves manual edits
+- Requires: diff parser in backend, frontend diff viewer
+
+### P2-3: Visual Self-Check Loop
+- After code generation, render in headless browser
+- Feed screenshot back to LLM for comparison
+- Auto-fix visual issues before showing to user
+- (Significant complexity — only if time allows)
+
+---
+
+## Evaluation Criteria Mapping
+
+| Interview Criteria | What We Address |
+|---|---|
+| 完成度 | P0 fixes + regression tests = working demo |
+| 工程思维 | P0-3 iteration awareness shows task decomposition; P2-2 diff editing shows complexity control |
+| 用户体验 | P0-2 Tailwind mandate = professional UI; P1-2 engineer default = faster interaction |
+| 创新性 | Multi-agent SOP (team mode); Race mode (if implemented); Visual self-check (P2-3) |
+| 可交付性 | PROJECT_PLAN.md + clear documentation + deployed demo + GitHub |
+
+---
+
+## Architecture Diagram (Target)
 
 ```
-用户注册/登录 → 创建项目 → 选择模式(Engineer/Team)
-→ 输入自然语言需求 → Agent协作(SOP工作流)
-→ 实时显示Agent思考/执行过程 → 代码生成
-→ App Viewer实时预览 → 迭代修改 → 发布/分享
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Chat UI    │────▶│  Orchestrator │────▶│   Agents     │
+│  (Next.js)   │◀────│  (FastAPI)    │◀────│  (8 roles)   │
+│              │     │              │     │              │
+│  - SSE stream│     │  - plan mode │     │  - PM (Emma) │
+│  - @mention  │     │  - iteration │     │  - Architect │
+│  - mode select│    │  - context   │     │  - Engineer  │
+│  - stop btn  │     │    mgmt      │     │  - Leader    │
+└──────────────┘     └──────────────┘     └──────────────┘
+       │                    │                     │
+       │             ┌──────▼──────┐       ┌──────▼──────┐
+       │             │  LLM Router │       │  Code Store │
+       │             │  (multi-    │       │  (SQLite +  │
+       │             │   model)    │       │   versions) │
+       │             └─────────────┘       └─────────────┘
+       │                                           │
+  ┌────▼────┐                              ┌──────▼──────┐
+  │ Preview  │                              │  HTML/CSS   │
+  │ (iframe) │◀─────────────────────────────│  + Tailwind │
+  │ sandbox  │                              │  via CDN    │
+  └─────────┘                              └─────────────┘
 ```
 
 ---
 
-## 二、技术选型
-
-### 2.1 前端
-- **框架**: Next.js 14 (App Router) + React 18
-- **UI**: Tailwind CSS + shadcn/ui + Framer Motion
-- **代码编辑器**: Monaco Editor
-- **预览**: iframe sandbox
-- **状态管理**: Zustand
-- **实时通信**: WebSocket (Agent执行过程流式展示)
-
-### 2.2 后端
-- **语言**: Python (FastAPI) — 快速开发，LLM生态丰富
-- **LLM编排**: LangChain / 直接调用 OpenAI API
-- **流式输出**: SSE (Server-Sent Events)
-- **数据库**: SQLite (开发) / PostgreSQL (生产)
-- **ORM**: SQLAlchemy
-- **认证**: JWT
-- **文件存储**: 本地文件系统
-
-### 2.3 部署
-- **前端**: Vercel
-- **后端**: Railway / Fly.io
-- **整体**: Docker Compose 一键启动
+## Current Status
+- [x] Deep research on Atoms.dev
+- [x] Deep research on AI code generation SOTA (v0, bolt, lovable, aider)
+- [x] Full codebase audit identifying root causes
+- [ ] P0 fixes (3 items)
+- [ ] P1 improvements (3 items)
+- [ ] P2 polish (optional)
+- [ ] Regression testing (5 items from reviewer)
+- [ ] Deploy + submit
 
 ---
 
-## 三、系统架构
-
-```
-┌─────────────────────────────────────────────────┐
-│                    Frontend                      │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │  Chat UI │ │ Preview  │ │  Code Editor     │ │
-│  │  Panel   │ │ Panel    │ │  Panel           │ │
-│  └────┬─────┘ └────┬─────┘ └───────┬──────────┘ │
-│       │             │               │            │
-│  ┌────┴─────────────┴───────────────┴──────────┐ │
-│  │           Zustand State Store               │ │
-│  └────────────────────┬────────────────────────┘ │
-└───────────────────────┼──────────────────────────┘
-                        │ HTTP/SSE/WS
-┌───────────────────────┼──────────────────────────┐
-│                   Backend (FastAPI)               │
-│  ┌──────────┐ ┌──────┴──────┐ ┌───────────────┐ │
-│  │ Auth API │ │ Chat/Agent  │ │ Project API   │ │
-│  │          │ │ SSE Stream  │ │               │ │
-│  └────┬─────┘ └──────┬──────┘ └───────┬───────┘ │
-│       │              │                │          │
-│  ┌────┴──────────────┴────────────────┴───────┐ │
-│  │          Agent Orchestrator                 │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌───────────┐    │ │
-│  │  │ Leader  │ │   PM    │ │ Architect │    │ │
-│  │  │ Agent   │ │ Agent   │ │ Agent     │    │ │
-│  │  └─────────┘ └─────────┘ └───────────┘    │ │
-│  │  ┌─────────┐ ┌─────────┐                  │ │
-│  │  │ Engineer│ │ Research│                  │ │
-│  │  │ Agent   │ │ Agent   │                  │ │
-│  │  └─────────┘ └─────────┘                  │ │
-│  └──────────────────┬────────────────────────┘ │
-│                     │                           │
-│  ┌──────────────────┴────────────────────────┐ │
-│  │           LLM Provider Layer              │ │
-│  │   OpenAI GPT-4 / Claude / DeepSeek        │ │
-│  └───────────────────────────────────────────┘ │
-│                                                  │
-│  ┌────────────┐  ┌──────────┐  ┌────────────┐  │
-│  │  SQLite/   │  │ File     │  │  Project   │  │
-│  │ PostgreSQL │  │ Storage  │  │  Sandbox   │  │
-│  └────────────┘  └──────────┘  └────────────┘  │
-└──────────────────────────────────────────────────┘
-```
-
----
-
-## 四、功能模块开发计划
-
-### Phase 1: 基础框架搭建 (2h)
-- [x] 项目初始化 (Next.js + FastAPI)
-- [ ] 数据库Schema设计与Migration
-- [ ] 用户认证系统 (注册/登录/JWT)
-- [ ] 基础UI布局 (三栏式: Chat + Preview + Editor)
-
-### Phase 2: 核心Agent系统 (3h)
-- [ ] Agent基类与接口设计
-- [ ] Leader Agent (任务分解与协调)
-- [ ] PM Agent (需求分析，PRD生成)
-- [ ] Architect Agent (技术方案设计)
-- [ ] Engineer Agent (代码生成)
-- [ ] Agent SOP工作流编排
-- [ ] SSE流式输出Agent思考过程
-
-### Phase 3: 对话与代码生成 (2h)
-- [ ] 对话界面 (ChatGPT风格)
-- [ ] 代码生成Pipeline (Prompt→Agent→Code)
-- [ ] 生成代码的沙箱预览 (iframe)
-- [ ] 模式切换 (Engineer/Team)
-
-### Phase 4: 项目管理与持久化 (1h)
-- [ ] 项目CRUD
-- [ ] 对话历史持久化
-- [ ] 生成代码版本管理
-- [ ] 项目分享链接
-
-### Phase 5: 延展能力 (1h)
-- [ ] Race Mode (多模型并行对比)
-- [ ] 可视化编辑 (Monaco Editor集成)
-- [ ] Deep Research Agent
-- [ ] 模板市场 (预置模板)
-
-### Phase 6: 部署与文档 (1h)
-- [ ] Docker化
-- [ ] Vercel/Railway部署
-- [ ] 说明文档撰写
-- [ ] GitHub整理
-
----
-
-## 五、数据库Schema
-
-### users
-- id, email, username, password_hash, avatar, credits, created_at, updated_at
-
-### projects
-- id, user_id, name, description, mode(engineer/team), status, thumbnail, created_at, updated_at
-
-### conversations
-- id, project_id, mode, created_at
-
-### messages
-- id, conversation_id, role(user/assistant/agent), agent_name, content, metadata, created_at
-
-### code_versions
-- id, project_id, version, code_html, code_css, code_js, created_at
-
-### agent_logs
-- id, conversation_id, agent_name, action, input, output, duration_ms, created_at
-
----
-
-## 六、核心创新点（差异化亮点）
-
-1. **可视化Agent SOP流程图**: 实时展示Agent间的协作流程，用户能看到任务如何在Agent间流转
-2. **Race Mode**: 并行调用多个LLM，用户选择最佳结果
-3. **渐进式代码生成**: 不是一次性生成全部代码，而是分步骤(架构→页面→组件→样式)逐步构建，每步可预览
-4. **Code Diff可视化**: 迭代修改时展示代码变更差异
-5. **模板衍生**: 从一个模板快速衍生出新项目
-
----
-
-## 七、开发进度追踪
-
-| Phase | 状态 | 开始时间 | 完成时间 |
-|-------|------|---------|---------|
-| Phase 1 | 🔄 进行中 | - | - |
-| Phase 2 | ⏳ 待开始 | - | - |
-| Phase 3 | ⏳ 待开始 | - | - |
-| Phase 4 | ⏳ 待开始 | - | - |
-| Phase 5 | ⏳ 待开始 | - | - |
-| Phase 6 | ⏳ 待开始 | - | - |
+## Key Files Reference
+| File | Purpose |
+|---|---|
+| `backend/app/agents/orchestrator.py` | Agent coordination, team mode plan execution |
+| `backend/app/agents/engineer.py` | Code generation prompts — MAIN QUALITY DRIVER |
+| `backend/app/agents/leader.py` | Team mode planning — needs iteration awareness |
+| `backend/app/agents/base.py` | Base agent class — has forced Chinese issue |
+| `backend/app/utils/html_utils.py` | HTML extraction — CRITICAL BUG |
+| `backend/app/services/chat_service.py` | Chat flow, iteration detection |
+| `frontend/src/store.ts` | Zustand stores, default mode |
+| `frontend/src/lib/api.ts` | API client, hardcoded URLs |
+| `frontend/src/components/chat/ChatPanel.tsx` | Chat UI, SSE handling |
+| `frontend/src/components/preview/PreviewPanel.tsx` | Preview iframe |

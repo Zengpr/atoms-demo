@@ -65,7 +65,7 @@ class BaseAgent(ABC):
         return f"You are {self.name}, {self.role}. {self.description} 请始终用中文回复。"
 
     def get_act_system_prompt(self) -> str:
-        return self.get_system_prompt()
+        return f"You are {self.name}, {self.role}. {self.description}"
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         return f"Request: {task}\n\nDescribe your implementation plan briefly (2-3 sentences)."

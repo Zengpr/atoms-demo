@@ -475,6 +475,8 @@ class Orchestrator:
         leader = self.agents["leader"]
         enriched_context = dict(context)
         enriched_context["mode"] = "team"
+        if context.get("previous_code"):
+            enriched_context["is_iteration"] = True
         total_start = time.time()
 
         yield {

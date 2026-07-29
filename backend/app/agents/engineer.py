@@ -5,6 +5,45 @@ from app.agents.base import BaseAgent
 from app.utils.llm import llm_provider
 
 
+TAILWIND_CDN = '<script src="https://cdn.tailwindcss.com"></script>'
+GOOGLE_FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">'
+
+DESIGN_SYSTEM = """DESIGN SYSTEM (MANDATORY — you MUST follow these rules):
+
+Tech Stack:
+- HTML5 + Tailwind CSS (via CDN) + Vanilla JavaScript
+- Inter font via Google Fonts
+- Icons: use inline SVG or emoji (no external icon library needed)
+
+CRITICAL: Include these EXACT lines in your <head>:
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif']}}}}</script>
+
+Visual Rules:
+- Use Tailwind utility classes ONLY — NEVER use inline styles or <style> tags (except for animations/keyframes)
+- Background: bg-zinc-950 or bg-gray-950 (dark theme) OR bg-white with gray-50 sections (light theme)
+- Cards: bg-white/5 backdrop-blur border border-white/10 rounded-xl shadow-lg (dark) OR bg-white shadow-md rounded-xl (light)
+- Text: text-white / text-zinc-100 for primary, text-zinc-400 for secondary (dark)
+- Accent colors: indigo-500, violet-500, emerald-500, amber-500 as needed
+- Buttons: px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
+- Spacing: consistent p-6, gap-4, mb-8 patterns; generous whitespace
+- Hover: always add hover effects on interactive elements (color change, scale, shadow)
+- Responsive: use max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 for containers
+- NEVER use placeholder text — write realistic, specific content matching the app's purpose
+- NEVER use default browser blue (#0000FF) or bare <a> link colors
+
+Layout Rules:
+- Use flex and grid layouts — NEVER use position:absolute for layout (only for overlays/modals)
+- Hero sections: full-width, centered content, large heading
+- Feature grids: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6
+- Navigation: sticky top-0 with backdrop-blur
+- Footer: border-t with py-8
+"""
+
+
 class EngineerAgent(BaseAgent):
     @property
     def name(self) -> str:
@@ -20,8 +59,8 @@ class EngineerAgent(BaseAgent):
             "You are a senior software engineer who writes high-quality, production-grade code. "
             "You implement complete, runnable web applications based on PRDs and architecture documents. "
             "Your code is well-structured, responsive, and visually polished. "
-            "You always output a complete, runnable HTML+CSS+JS file that can render in an iframe. "
-            "Do not wrap code in Markdown code blocks — start directly with <!DOCTYPE html>."
+            "You always output a complete, runnable HTML file with Tailwind CSS. "
+            "Do not wrap code in Markdown code blocks."
         )
 
     @property
@@ -31,13 +70,80 @@ class EngineerAgent(BaseAgent):
     def get_act_system_prompt(self) -> str:
         return (
             f"You are {self.name}, {self.role}. "
-            "You write COMPLETE, WORKING HTML+CSS+JS code that runs in an iframe. "
+            "You write COMPLETE, WORKING HTML+Tailwind CSS+JS code that runs in an iframe. "
             "Always output a single HTML file starting with <!DOCTYPE html>. "
             "NEVER refuse to write code. NEVER say you cannot provide code. "
             "NEVER wrap code in markdown fences. Start HTML directly. "
+            "You MUST use Tailwind CSS via CDN — never write raw CSS in <style> tags. "
             "When given a task, IMMEDIATELY write the full implementation code. "
-            "Do NOT explain — just output the code."
+            "Do NOT explain or analyze — just output the code starting with <!DOCTYPE html>."
         )
+
+    def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
+        prev_code = context.get("previous_code", "")
+        is_iteration = context.get("is_iteration", False)
+        prd = context.get("prd", "")
+        architecture = context.get("architecture", "")
+        console_errors = context.get("console_errors", [])
+
+        if is_iteration and prev_code:
+            prompt = (
+                f"[ITERATION] Modify the existing application based on the user's request.\n\n"
+                f"User request: {task}\n\n"
+                f"Current code:\n{prev_code}\n\n"
+            )
+            if console_errors:
+                prompt += (
+                    "BROWSER CONSOLE ERRORS (REAL errors — YOU MUST FIX THEM):\n"
+                    + "\n".join(f"- {e}" for e in console_errors)
+                    + "\n\n"
+                )
+            prompt += (
+                "Make the requested changes to the existing code. "
+                "Preserve everything that still works. Only modify what needs to change. "
+                "Output the COMPLETE modified HTML file.\n\n"
+                f"{DESIGN_SYSTEM}\n\n"
+                "START your output with <!DOCTYPE html> — NO explanation, NO markdown fences, NO analysis."
+            )
+        else:
+            prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
+            if prd:
+                prompt += f"Product Requirements (from PM):\n{prd[:3000]}\n\n"
+            if architecture:
+                prompt += f"Architecture (from Architect):\n{architecture[:3000]}\n\n"
+            prompt += (
+                f"{DESIGN_SYSTEM}\n\n"
+                "CRITICAL RULES:\n"
+                "- You MUST build EXACTLY what the user requested — same app type, same name, same features\n"
+                "- ALL interactive elements MUST work — buttons click, forms submit, calculations run\n"
+                "- Test every function call mentally — no undefined variables, no broken handlers\n"
+                "- Responsive design for all screen sizes using Tailwind responsive classes\n"
+                "- Must render correctly in an iframe\n"
+                "- For games: complete game loop (start→play→end), scoring, controls, win/lose, restart\n"
+                "- For games: start/game-over screens as HTML overlays with z-index above canvas\n"
+                "- For games: use document.addEventListener for key events (iframe compat)\n"
+                "- For games: add tabindex='0' to game container and .focus() on start\n"
+                "- For calculators: handle all inputs, real-time display, edge cases\n\n"
+                "START your output with <!DOCTYPE html> — NO explanation, NO markdown fences, NO analysis."
+            )
+
+        return prompt
+
+    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
+        is_iteration = context.get("is_iteration", False)
+        prev_code = context.get("previous_code", "")
+        history = context.get("conversation_history", [])
+
+        if is_iteration:
+            prompt = f"[ITERATION] User request: {task}\n\n"
+            if prev_code:
+                prompt += f"Current code:\n{prev_code}\n\n"
+            if history:
+                prompt += "Recent conversation:\n" + "\n".join(history[-6:]) + "\n\n"
+            prompt += "Briefly describe what needs to change (2-3 sentences). Do NOT write code."
+        else:
+            prompt = f"User request: {task}\n\nBriefly describe your implementation plan (2-3 sentences). Do NOT write code."
+        return prompt
 
     def _build_analyze_prompt(self, task: str, context: dict[str, Any]) -> str:
         is_iteration = context.get("is_iteration", False)
@@ -61,10 +167,9 @@ class EngineerAgent(BaseAgent):
         else:
             prompt += (
                 "Analyze this request thoroughly. Think about:\n"
-                "1. What is the user really trying to build? Go beyond the literal request — what would make this genuinely useful and impressive?\n"
-                "2. What features and interactions are essential for this to work well?\n"
-                "3. What edge cases or usability issues need to be handled?\n"
-                "4. What would make the result stand out versus a basic implementation?\n"
+                "1. What is the user really trying to build?\n"
+                "2. What features and interactions are essential?\n"
+                "3. What would make the result stand out versus a basic implementation?\n"
                 "Be specific and detailed. Do NOT write code yet."
             )
         return prompt
@@ -86,9 +191,8 @@ class EngineerAgent(BaseAgent):
                 "Based on this analysis, design the implementation:\n"
                 "1. Component/layout structure — HTML sections and hierarchy\n"
                 "2. State & data — what variables and data structures are needed\n"
-                "3. Interactions & logic — event handlers, game loops, algorithms\n"
-                "4. Styling approach — colors, layout, animations, responsive breakpoints\n"
-                "5. Key technical decisions — libraries, patterns, optimizations\n"
+                "3. Interactions & logic — event handlers, algorithms\n"
+                "4. Styling approach — Tailwind classes, colors, responsive breakpoints\n"
                 "Be concrete and specific. Do NOT write code yet."
             )
         return prompt
@@ -114,91 +218,9 @@ class EngineerAgent(BaseAgent):
             )
 
         prompt += (
-            "CRITICAL REQUIREMENTS:\n"
-            "1. Output a SINGLE, COMPLETE HTML file with embedded CSS and JS\n"
-            "2. Start HTML with <!DOCTYPE html> directly — NO markdown code fences, NO explanation before the code\n"
-            "3. ALL interactive elements MUST actually work — buttons click, games playable, forms submit\n"
-            "4. For games: must have complete game loop (start → play → end), scoring, controls, and win/lose conditions\n"
-            "5. For calculators: must handle all button inputs correctly, display updates in real-time\n"
-            "6. Test your logic mentally before outputting — no broken event handlers, no undefined variables\n"
-            "7. Use modern CSS (Grid, Flexbox, custom properties) with beautiful, polished UI\n"
-            "8. Responsive design for all screen sizes\n"
-            "9. Must render correctly in an iframe\n"
-            "10. For games with canvas: the canvas MUST be BELOW any HTML overlay/buttons (use z-index). "
-            "Start screen and game-over screen MUST be HTML elements on top of canvas, NOT drawn on canvas. "
-            "Buttons must use real <button> tags with click handlers. "
-            "Do NOT rely on canvas click detection for menu buttons.\n"
-            "11. For games: use document.addEventListener for keyboard input (NOT window.addEventListener) "
-            "to ensure iframe compatibility. Attach key listeners to document, not window.\n"
-            "12. For games: add tabindex='0' to the game container div and focus it on start, "
-            "so keyboard events work inside iframe.\n"
-        )
-        return prompt
-
-    def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
-        return self._build_analyze_prompt(task, context)
-
-    def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
-        prev_code = context.get("previous_code", "")
-        is_iteration = context.get("is_iteration", False)
-        prd = context.get("prd", "")
-        architecture = context.get("architecture", "")
-        history = context.get("conversation_history", [])
-
-        if is_iteration and prev_code:
-            prompt = (
-                f"[ITERATION] Modify the existing application.\n\n"
-                f"User request: {task}\n\n"
-                f"Current code:\n{prev_code}\n\n"
-            )
-            if history:
-                prompt += "Conversation:\n" + "\n".join(history[-6:]) + "\n\n"
-            if prd:
-                prompt += f"Product Requirements (from PM):\n{prd[:2000]}\n\n"
-            if architecture:
-                prompt += f"Architecture (from Architect):\n{architecture[:2000]}\n\n"
-            prompt += "First output your analysis of what needs to change and any bugs to fix. Then output the COMPLETE modified HTML file.\n\n"
-        else:
-            prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
-            if prd:
-                prompt += f"Product Requirements (from PM):\n{prd[:3000]}\n\n"
-            if architecture:
-                prompt += f"Architecture (from Architect):\n{architecture[:3000]}\n\n"
-
-        console_errors = context.get("console_errors", [])
-        error_section = ""
-        if console_errors:
-            error_section = (
-                "\nBROWSER CONSOLE ERRORS (these are REAL errors from running the code — YOU MUST FIX THEM):\n"
-                + "\n".join(f"- {e}" for e in console_errors)
-                + "\n\nThese errors MUST be fixed in your new output. Do NOT ignore them.\n"
-            )
-
-        prompt += (
-            "OUTPUT FORMAT — follow this exactly:\n"
-            "1. **Analysis** — What is this? What features are essential? What makes it genuinely useful/impressive? What edge cases?\n"
-            "2. **Design** — Layout structure, state/data model, key algorithms, interaction flow, styling approach\n"
-            "3. **Implementation** — Output a SINGLE, COMPLETE HTML file starting with <!DOCTYPE html>\n\n"
-            + error_section +
-            "CRITICAL:\n"
-            "- You MUST build EXACTLY what the user requested. Do NOT build something different.\n"
-            "- If the user asks for a counter app, build a counter app — NOT a feedback system, NOT a landing page.\n"
-            "- If the user asks for a game, build that specific game — NOT a generic template.\n"
-            "- The app title, heading, and content MUST match the user's original request.\n"
-            "- Games MUST have: complete game loop (start→play→end), scoring, controls, win/lose, restart\n"
-            "- Games: add window.onerror handler that alerts the error so bugs are visible\n"
-            "- Games: the start/play button MUST be a real <button> element with click handler, NOT canvas click detection\n"
-            "- Games: start screen and game-over screen MUST be HTML overlays with z-index ABOVE canvas\n"
-            "- Games: canvas must have position:absolute and lower z-index than overlay screens\n"
-            "- Games: use document.addEventListener for key events (NOT window.addEventListener) for iframe compat\n"
-            "- Games: add tabindex='0' to game container and call .focus() on start so keyboard works in iframe\n"
-            "- Games: initialize ALL game objects (player, enemies, etc.) at declaration time, not just in loadLevel()\n"
-            "- Calculators MUST: handle all inputs, real-time display updates, edge cases\n"
-            "- ALL interactive elements MUST work — no broken handlers, no undefined variables\n"
-            "- Test every function call mentally — if you reference a variable, make sure it's initialized BEFORE use\n"
-            "- Start HTML with <!DOCTYPE html> — NO markdown fences\n"
-            "- Beautiful polished UI with modern CSS\n"
-            "- Must render in an iframe\n"
+            f"{DESIGN_SYSTEM}\n\n"
+            "Output a SINGLE, COMPLETE HTML file with embedded Tailwind classes and JS.\n"
+            "Start with <!DOCTYPE html> directly — NO markdown fences, NO explanation.\n"
         )
         return prompt
 
@@ -207,15 +229,15 @@ class EngineerAgent(BaseAgent):
         if llm_provider.is_mock:
             is_iteration = context.get("is_iteration", False)
             if is_iteration:
-                return f"I'll modify the existing application based on the user's feedback. The change involves: {task[:100]}. I'll update the relevant sections while preserving the working parts."
-            return f"I'll build this from scratch. The plan: create a modern, responsive single-page application with clean structure, polished styling, and working interactions."
+                return f"I'll modify the existing application based on the user's feedback. The change involves: {task[:100]}."
+            return f"I'll build this from scratch using Tailwind CSS with a polished, professional design."
         return await llm_provider.generate(self.get_system_prompt(), prompt)
 
     async def act(self, task: str, context: dict[str, Any]) -> str:
         prompt = self._build_act_prompt(task, context)
         if llm_provider.is_mock:
             return self._mock_iterate(task, context.get("previous_code", ""), context.get("is_iteration", False))
-        result = await llm_provider.generate(self.get_system_prompt(), prompt, temperature=0.4)
+        result = await llm_provider.generate(self.get_act_system_prompt(), prompt, temperature=0.4)
         code = extract_html(result)
         return code
 
@@ -294,15 +316,15 @@ class EngineerAgent(BaseAgent):
 
     def _add_contact_form(self, code: str) -> str:
         form_html = """
-<section style="padding:80px 24px;text-align:center">
-<div style="max-width:500px;margin:0 auto">
-<h2 style="font-size:28px;font-weight:700;margin-bottom:8px">Get in Touch</h2>
-<p style="color:#94a3b8;margin-bottom:32px">We'd love to hear from you</p>
-<form onsubmit="event.preventDefault();this.innerHTML='<p style=\\'color:#22c55e;font-size:18px;padding:40px\\'>Message sent! We\\'ll get back to you soon.</p>'" style="display:flex;flex-direction:column;gap:16px">
-<input placeholder="Your name" style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#e2e8f0;font-size:14px;outline:none">
-<input placeholder="Email" type="email" style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#e2e8f0;font-size:14px;outline:none">
-<textarea placeholder="Your message" rows="4" style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#e2e8f0;font-size:14px;outline:none;resize:vertical"></textarea>
-<button type="submit" style="padding:12px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:600;font-size:14px;cursor:pointer">Send Message</button>
+<section class="py-20 px-6 text-center">
+<div class="max-w-lg mx-auto">
+<h2 class="text-3xl font-bold mb-2">Get in Touch</h2>
+<p class="text-zinc-400 mb-8">We'd love to hear from you</p>
+<form onsubmit="event.preventDefault();this.innerHTML='<p class=\\'text-emerald-400 text-lg py-10\\'>Message sent! We\\'ll get back to you soon.</p>'" class="flex flex-col gap-4">
+<input placeholder="Your name" class="p-3 rounded-xl border border-white/10 bg-white/5 text-zinc-100 text-sm outline-none focus:border-indigo-500 transition">
+<input placeholder="Email" type="email" class="p-3 rounded-xl border border-white/10 bg-white/5 text-zinc-100 text-sm outline-none focus:border-indigo-500 transition">
+<textarea placeholder="Your message" rows="4" class="p-3 rounded-xl border border-white/10 bg-white/5 text-zinc-100 text-sm outline-none resize-vertical focus:border-indigo-500 transition"></textarea>
+<button type="submit" class="py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-semibold hover:scale-[1.02] active:scale-[0.98] transition-all duration-200">Send Message</button>
 </form>
 </div>
 </section>

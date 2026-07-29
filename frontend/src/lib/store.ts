@@ -98,7 +98,7 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   isStreaming: false,
-  currentMode: "team",
+  currentMode: "engineer",
 
   addMessage: (message) =>
     set((s) => ({ messages: [...s.messages, message] })),
