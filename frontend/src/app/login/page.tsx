@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Mail, Lock, User } from "lucide-react";
+import { Sparkles, Mail, Lock, User, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/lib/store";
@@ -20,7 +20,21 @@ function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleGuestLogin = async () => {
+    setGuestLoading(true);
+    setError("");
+    try {
+      await useAuthStore.getState().guestLogin();
+      router.push("/dashboard");
+    } catch {
+      setError("Failed to create guest account. Please try manual registration.");
+    } finally {
+      setGuestLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,6 +176,26 @@ function LoginForm() {
               {tab === "login" ? "Sign In" : "Create Account"}
             </Button>
           </form>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-atoms-border" /></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-atoms-card px-2 text-zinc-500">or</span></div>
+          </div>
+
+          <Button
+            onClick={handleGuestLogin}
+            loading={guestLoading}
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            Try as Guest — No Registration Required
+          </Button>
+
+          <div className="mt-4 rounded-lg bg-white/3 border border-white/6 px-3 py-2.5 text-center">
+            <p className="text-[11px] text-zinc-500 mb-1">Demo Test Account (Reviewer)</p>
+            <p className="text-xs text-zinc-300 font-mono">demo@atoms-demo.app / demo2024</p>
+          </div>
         </div>
       </motion.div>
     </div>

@@ -12,6 +12,7 @@ interface AuthState {
     username: string,
     password: string
   ) => Promise<void>;
+  guestLogin: () => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
 }
@@ -28,6 +29,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (email, username, password) => {
+    const res = await authApi.register(email, username, password);
+    localStorage.setItem("atoms_token", res.accessToken);
+    set({ user: res.user, token: res.accessToken, isAuthenticated: true });
+  },
+
+  guestLogin: async () => {
+    const suffix = Math.random().toString(36).substring(2, 8);
+    const email = `guest_${suffix}@atoms-demo.app`;
+    const username = `Guest_${suffix}`;
+    const password = "guest2024";
     const res = await authApi.register(email, username, password);
     localStorage.setItem("atoms_token", res.accessToken);
     set({ user: res.user, token: res.accessToken, isAuthenticated: true });

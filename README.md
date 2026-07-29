@@ -4,8 +4,8 @@
 
 **深度赋智 (DeepSeek/ROOT) 面试项目** · 目标岗位：AI Native 全栈工程师
 
-[![Demo](https://img.shields.io/badge/Demo-在线体验-blue?style=for-the-badge)](https://frontend-theta-inky-12.vercel.app)
-[![Backend](https://img.shields.io/badge/API-Railway-green?style=for-the-badge)](https://backend-production-e62a.up.railway.app/docs)
+[![Demo](https://img.shields.io/badge/Demo-在线体验-blue?style=for-the-badge)](https://frontend-production-e558.up.railway.app)
+[![Backend](https://img.shields.io/badge/API-Railway-green?style=for-the-badge)](https://backend-api-production-8923.up.railway.app/docs)
 [![GitHub](https://img.shields.io/badge/GitHub-源码仓库-black?style=for-the-badge&logo=github)](https://github.com/Zengpr/atoms-demo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -21,11 +21,22 @@ Atoms Demo 是一个受 [Atoms.dev](https://atoms.dev) 启发的 AI Agent 驱动
 
 ---
 
+## 🚀 快速体验
+
+| 方式 | 说明 |
+|------|------|
+| **游客模式** | 首页点击 "Try as Guest" 按钮，一键创建临时账号，无需注册 |
+| **测试账号** | 邮箱: `demo@atoms-demo.app`，密码: `demo2024`（预置项目，直接可用） |
+
+> ⚠️ 使用真实 LLM (agnes-2.0-flash)，非 Mock。生成代码使用 Tailwind CSS + Inter 字体。
+
+---
+
 ## 核心特性
 
 | 特性 | 说明 |
 |------|------|
-| 🤖 **多 Agent 协作** | 5 个专业化角色（Mike/Emma/Bob/Alex/Iris）以 SOP 流程协同工作 |
+| 🤖 **多 Agent 协作** | 8 个专业化角色（Mike/Emma/Bob/Alex/Iris/Sarah/Adrian/David）以 SOP 流程协同工作 |
 | ⚡ **SSE 实时流式** | Agent 思考、执行、代码生成过程全程可视化，体验如同观察真实团队协作 |
 | 👁️ **实时预览** | iframe sandbox 渲染生成的 HTML/CSS/JS，支持 PC / Tablet / Mobile 视口切换 |
 | 🔄 **4 种执行模式** | Engineer（快速单 Agent） / Team（多 Agent SOP） / Race（多模型竞速） / Research（深度研究） |

@@ -11,7 +11,8 @@ Atoms Demo 是一个受 Atoms.dev 启发的 AI Agent 驱动代码生成平台。
 - **Demo 链接**: https://frontend-production-e558.up.railway.app（国内直连可用）
 - **后端 API**: https://backend-api-production-8923.up.railway.app/docs
 - **GitHub**: https://github.com/Zengpr/atoms-demo
-- **测试账号**: 注册即用（无需额外 API Key），任何邮箱均可
+- **测试账号**: `demo@atoms-demo.app` / `demo2024`（预置项目，直接可用）
+- **游客入口**: 首页点击 "Try as Guest" 按钮一键体验，无需注册
 
 ### 架构设计
 

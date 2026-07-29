@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { AGENTS } from "@/lib/agents";
-import { Cpu, Eye, Rocket, Sparkles, ArrowRight } from "lucide-react";
+import { Cpu, Eye, Rocket, Sparkles, ArrowRight, Zap } from "lucide-react";
 
 const FEATURES = [
   {
@@ -26,6 +26,12 @@ const FEATURES = [
 ];
 
 export default function HomePage() {
+  const handleGuestLogin = async () => {
+    const { guestLogin } = await import("@/lib/store").then(m => m.useAuthStore.getState());
+    await guestLogin();
+    window.location.href = "/dashboard";
+  };
+
   return (
     <div className="min-h-full bg-atoms-dark overflow-hidden">
       <div className="fixed inset-0 -z-10">
@@ -39,6 +45,13 @@ export default function HomePage() {
           <span className="text-lg font-bold text-white">Atoms Demo</span>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleGuestLogin}
+            className="flex items-center gap-1.5 rounded-lg border border-atoms-border bg-atoms-card px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5 transition-colors"
+          >
+            <Zap className="h-3.5 w-3.5 text-amber-400" />
+            Try as Guest
+          </button>
           <Link href="/login">
             <Button variant="ghost" size="sm">Sign In</Button>
           </Link>
@@ -86,17 +99,24 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-8 flex gap-4"
+          className="mt-8 flex flex-col items-center gap-3"
         >
-          <Link href="/login?tab=register">
-            <Button size="lg">
-              Start Free
-              <Rocket className="h-4 w-4" />
-            </Button>
-          </Link>
-          <Link href="/login">
-            <Button variant="outline" size="lg">Sign In</Button>
-          </Link>
+          <div className="flex gap-4">
+            <button
+              onClick={handleGuestLogin}
+              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-all"
+            >
+              <Zap className="h-4 w-4" />
+              Try as Guest — No Signup
+            </button>
+            <Link href="/login?tab=register">
+              <Button size="lg">
+                Start Free
+                <Rocket className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+          <p className="text-xs text-zinc-600">Demo account: demo@atoms-demo.app / demo2024</p>
         </motion.div>
       </section>
 
@@ -206,12 +226,21 @@ export default function HomePage() {
           <p className="text-zinc-400 mb-8">
             Describe your idea, and the AI team builds it from zero to one
           </p>
-          <Link href="/login?tab=register">
-            <Button size="lg">
-              Get Started
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={handleGuestLogin}
+              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 transition-all"
+            >
+              <Zap className="h-4 w-4" />
+              Try as Guest
+            </button>
+            <Link href="/login?tab=register">
+              <Button size="lg">
+                Get Started
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </motion.div>
       </section>
 
