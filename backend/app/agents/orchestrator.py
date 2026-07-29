@@ -28,13 +28,21 @@ async def _mock_delay():
         await asyncio.sleep(MOCK_DELAY)
 
 
+MAX_HEARTBEATS = 2
+
+
 async def _heartbeat(name: str, emoji: str, message: str) -> AsyncIterator[dict[str, Any]]:
-    while True:
+    count = 0
+    while count < MAX_HEARTBEATS:
         await asyncio.sleep(HEARTBEAT_SEC)
+        count += 1
         yield {
             "event": "agent_thinking",
-            "data": {"agent": name, "emoji": emoji, "message": message},
+            "data": {"agent": name, "emoji": emoji, "message": message, "count": count},
         }
+
+
+LLM_TOTAL_TIMEOUT = 150
 
 
 async def _stream_llm_as_events(
@@ -55,9 +63,14 @@ async def _stream_llm_as_events(
 
     done_set: set[asyncio.Task] = set()
     pending = {gen_task, hb_task}
+    start_time = time.time()
 
     try:
         while pending:
+            elapsed = time.time() - start_time
+            if elapsed > LLM_TOTAL_TIMEOUT:
+                logger.error(f"LLM total timeout for {agent.name} after {elapsed:.0f}s")
+                break
             done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
             done_set.update(done)
 
@@ -267,9 +280,14 @@ class Orchestrator:
         hb_task = asyncio.create_task(hb.__anext__())
         pending = {act_task, hb_task}
         first_token = True
+        start_time = time.time()
 
         try:
             while pending:
+                elapsed = time.time() - start_time
+                if elapsed > LLM_TOTAL_TIMEOUT:
+                    logger.error(f"Engineer mode LLM timeout after {elapsed:.0f}s")
+                    break
                 done, pending_new = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
                 pending = pending_new
                 for t in done:
@@ -328,6 +346,18 @@ class Orchestrator:
                     pass
 
         code = _extract_html(full_text)
+        if not full_text.strip():
+            duration = int((time.time() - start) * 1000)
+            yield {
+                "event": "message_complete",
+                "data": {
+                    "agent": engineer.name,
+                    "message": "抱歉，AI模型连接超时，请稍后重试。",
+                    "duration_ms": duration,
+                    "error": True,
+                },
+            }
+            return
         if not code_started:
             text_only = re.sub(r'```.*?```', '', full_text, flags=re.DOTALL).strip()
             if text_only:
