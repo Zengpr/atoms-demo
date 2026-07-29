@@ -97,7 +97,7 @@ function WorkflowTracker({ currentStep, totalSteps, activeAgent, stepStatuses }:
   );
 }
 
-function WorkingIndicator({ agentName }: { agentName: string }) {
+function WorkingIndicator({ agentName, message }: { agentName: string; message?: string }) {
   const agent = getAgentByName(agentName);
   const agentColor = getAgentColor(agentName);
 
@@ -115,7 +115,7 @@ function WorkingIndicator({ agentName }: { agentName: string }) {
           <div className="h-5 w-5 rounded-full" style={{ backgroundColor: `${agentColor}30` }} />
         )}
         <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: agentColor }} />
-        <span className="text-xs text-zinc-400">{agentName} 正在工作中...</span>
+        <span className="text-xs text-zinc-400">{message ?? `${agentName} 正在工作中...`}</span>
       </div>
     </motion.div>
   );
@@ -136,6 +136,40 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
     stepStatuses: Record<string, StepStatus>;
   } | null>(null);
   const [workingAgent, setWorkingAgent] = useState<string>("Mike");
+  const autoFixAttempted = useRef(false);
+  const justCompletedRef = useRef(false);
+  const isAutoFixRef = useRef(false);
+  const handleSendRef = useRef<(content: string, fileContexts?: { name: string; content: string; type: string; size: number }[]) => void>(() => {});
+  const [pendingAutoFix, setPendingAutoFix] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !isStreaming &&
+      justCompletedRef.current &&
+      consoleErrors.length > 0 &&
+      !autoFixAttempted.current &&
+      !isAutoFixRef.current
+    ) {
+      autoFixAttempted.current = true;
+      isAutoFixRef.current = true;
+      justCompletedRef.current = false;
+      const errMsgs = consoleErrors.map(
+        (e) => `${e.message}${e.line ? ` (行 ${e.line})` : ""}`
+      );
+      const fixMsg = `修复以下浏览器控制台错误：\n${errMsgs.join("\n")}`;
+      setPendingAutoFix(fixMsg);
+    }
+  }, [isStreaming, consoleErrors.length]);
+
+  useEffect(() => {
+    if (pendingAutoFix && !isStreaming) {
+      const msg = pendingAutoFix;
+      setPendingAutoFix(null);
+      setTimeout(() => {
+        handleSendRef.current(msg);
+      }, 800);
+    }
+  }, [pendingAutoFix, isStreaming]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -164,6 +198,8 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
       setStreaming(true);
       setPendingApproval(null);
       setWorkflowTracker(null);
+      autoFixAttempted.current = false;
+      justCompletedRef.current = false;
 
       const abortController = new AbortController();
       abortRef.current = abortController;
@@ -175,6 +211,7 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
 
       let receivedComplete = false;
       let lastThinkingId: string | null = null;
+      let lastThinkingAgent: string = "";
       const stepStatuses: Record<string, StepStatus> = {};
       let stepIdx = 0;
       const isTeamMode = currentMode === "team";
@@ -196,25 +233,37 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
           setWorkingAgent(agentName);
 
           if (sse.event === "agent_thinking") {
-            const id = crypto.randomUUID();
-            lastThinkingId = id;
-            const hideStream = currentMode === "team";
-            addMessage({
-              id,
-              conversationId: projectId,
-              role: "agent",
-              agentName,
-              content: "",
-              metadata: {
-                thinking: true,
-                emoji,
-                role,
-                message: `${agentName} 正在思考...`,
-                streamText: "",
-                hideStream,
-              },
-              createdAt: new Date().toISOString(),
-            });
+            if (!lastThinkingId || lastThinkingAgent !== agentName) {
+              if (lastThinkingId && lastThinkingAgent !== agentName) {
+                const msgs = useChatStore.getState().messages;
+                const oldThinking = msgs.find(m => m.id === lastThinkingId);
+                if (oldThinking && oldThinking.metadata?.hideStream) {
+                  useChatStore.setState((s) => ({
+                    messages: s.messages.filter((m) => m.id !== lastThinkingId),
+                  }));
+                }
+              }
+              const id = crypto.randomUUID();
+              lastThinkingId = id;
+              lastThinkingAgent = agentName;
+              const hideStream = currentMode === "team";
+              addMessage({
+                id,
+                conversationId: projectId,
+                role: "agent",
+                agentName,
+                content: "",
+                metadata: {
+                  thinking: true,
+                  emoji,
+                  role,
+                  message: `${agentName} 正在思考...`,
+                  streamText: "",
+                  hideStream,
+                },
+                createdAt: new Date().toISOString(),
+              });
+            }
           } else if (sse.event === "agent_stream") {
             const chunk = (sse.data.chunk as string) ?? "";
             if (lastThinkingId) {
@@ -245,6 +294,7 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
               }
             }
             lastThinkingId = null;
+            lastThinkingAgent = "";
             const prd = sse.data.prd;
             const architecture = sse.data.architecture;
             const plan = sse.data.plan;
@@ -327,6 +377,7 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
             }
           } else if (sse.event === "approval_request") {
             lastThinkingId = null;
+            lastThinkingAgent = "";
           } else if (sse.event === "code_generated") {
             const code = (sse.data.code as string) ?? "";
             if (code) {
@@ -338,8 +389,10 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
             }
           } else if (sse.event === "message_complete") {
             lastThinkingId = null;
+            lastThinkingAgent = "";
             receivedComplete = true;
             setPendingApproval(null);
+            justCompletedRef.current = true;
             if (isTeamMode) {
               Object.keys(stepStatuses).forEach(k => { stepStatuses[k] = "done"; });
               setWorkflowTracker(prev => prev ? { ...prev, stepStatuses: { ...stepStatuses } } : null);
@@ -391,6 +444,10 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
     },
     [projectId, addMessage, updateLastAgentMessage, setStreaming, setPreviewHtml, currentMode, clearConsoleErrors, consoleErrors]
   );
+
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
 
   const handleApprovalContinue = useCallback(() => {
     setPendingApproval(null);
