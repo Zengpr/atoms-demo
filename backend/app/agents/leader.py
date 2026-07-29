@@ -41,7 +41,7 @@ class LeaderAgent(BaseAgent):
                 "IMPORTANT CONTEXT: This is an ITERATION request — the user wants to modify an existing application.\n"
                 "The application already exists and is working. The user just wants specific changes.\n\n"
                 "DECISION RULES for iteration requests:\n"
-                "- For simple changes (color, text, layout tweaks, adding a button, fixing a bug): "
+                "- For simple changes (color, text, layout tweaks, adding a button, fixing a bug, fixing console errors): "
                 "assign ONLY key='engineer' (Alex). Skip PM and Architect.\n"
                 "- For moderate changes (adding a new feature, significant UI overhaul): "
                 "assign key='architect' then key='engineer'. Skip PM.\n"
@@ -51,10 +51,16 @@ class LeaderAgent(BaseAgent):
             )
         else:
             prompt += (
-                "This is a NEW project request. Plan the appropriate agent pipeline:\n"
-                "- Simple apps (counter, calculator, landing page): key='engineer' only\n"
-                "- Standard apps (dashboard, todo, form): key='architect' → key='engineer'\n"
-                "- Complex apps (full-stack, multi-feature): key='pm' → key='architect' → key='engineer'\n\n"
+                "This is a NEW project request. Decide the appropriate agent pipeline based on COMPLEXITY:\n\n"
+                "SIMPLE apps (calculator, counter, timer, stopwatch, to-do list, landing page, form, quiz, "
+                "converter, clock, weather widget, note pad, BMI calculator, tip calculator, simple game): "
+                "assign ONLY key='engineer' (Alex). Do NOT involve PM or Architect.\n\n"
+                "STANDARD apps (dashboard, admin panel, e-commerce, chat app, kanban board, blog, portfolio): "
+                "assign key='architect' → key='engineer'. Skip PM.\n\n"
+                "COMPLEX apps (full-stack SaaS, multi-role platform, complex workflow system): "
+                "use the full pipeline: key='pm' → key='architect' → key='engineer'.\n\n"
+                "IMPORTANT: When in doubt, default to FEWER agents. A calculator does NOT need a PM. "
+                "A to-do app does NOT need an architect. Keep it lean.\n\n"
             )
 
         prompt += (
@@ -65,7 +71,9 @@ class LeaderAgent(BaseAgent):
             "- key='researcher' (Iris): In-depth research\n\n"
             "Output a JSON plan with 'plan' (summary), 'steps' (array of {agent, task}), "
             "and 'summary' (one-sentence summary). "
-            "CRITICAL: The 'agent' field MUST be the key string (pm, architect, engineer, researcher), NOT the name."
+            "CRITICAL: The 'agent' field MUST be the key string (pm, architect, engineer, researcher), NOT the name. "
+            "CRITICAL: Each step's 'task' MUST include the ORIGINAL USER REQUEST so agents know exactly what to build. "
+            "Format: \"ORIGINAL REQUEST: <user's exact words> \\n YOUR TASK: <specific assignment>\""
         )
         return prompt
 
@@ -77,40 +85,38 @@ class LeaderAgent(BaseAgent):
                 return json.dumps({
                     "plan": "Quick iteration — assign engineer directly.",
                     "steps": [
-                        {"agent": "engineer", "task": f"Modify existing app: {task}"}
+                        {"agent": "engineer", "task": f"ORIGINAL REQUEST: {task}\nYOUR TASK: Modify existing app as requested"}
                     ],
                     "summary": "Engineer-only iteration"
                 })
             return json.dumps({
-                "plan": "I'll coordinate the team to build this application step by step.",
+                "plan": "Build the requested application.",
                 "steps": [
-                    {"agent": "pm", "task": f"Analyze requirements for: {task}"},
-                    {"agent": "architect", "task": f"Design architecture for: {task}"},
-                    {"agent": "engineer", "task": f"Implement: {task}"}
+                    {"agent": "engineer", "task": f"ORIGINAL REQUEST: {task}\nYOUR TASK: Build a complete, working web application"}
                 ],
-                "summary": "Full team pipeline: PM → Architect → Engineer"
+                "summary": "Engineer-only build"
             })
         result = await llm_provider.generate(self.get_system_prompt(), prompt)
         try:
-            json.loads(result)
-            return result
+            plan = json.loads(result)
+            if not plan.get("steps"):
+                plan["steps"] = [{"agent": "engineer", "task": f"ORIGINAL REQUEST: {task}\nYOUR TASK: Implement the requested application"}]
+            return json.dumps(plan)
         except json.JSONDecodeError:
             if is_iteration:
                 return json.dumps({
                     "plan": "Quick iteration — assign engineer directly.",
                     "steps": [
-                        {"agent": "engineer", "task": f"Modify existing app: {task}"}
+                        {"agent": "engineer", "task": f"ORIGINAL REQUEST: {task}\nYOUR TASK: Modify existing app as requested"}
                     ],
                     "summary": "Engineer-only iteration"
                 })
             return json.dumps({
-                "plan": "I'll coordinate the team to build this application step by step.",
+                "plan": "Build the requested application.",
                 "steps": [
-                    {"agent": "pm", "task": f"Analyze requirements for: {task}"},
-                    {"agent": "architect", "task": f"Design architecture for: {task}"},
-                    {"agent": "engineer", "task": f"Implement: {task}"}
+                    {"agent": "engineer", "task": f"ORIGINAL REQUEST: {task}\nYOUR TASK: Build a complete, working web application"}
                 ],
-                "summary": "Full team pipeline: PM → Architect → Engineer"
+                "summary": "Engineer-only build"
             })
 
     async def act(self, task: str, context: dict[str, Any]) -> str:

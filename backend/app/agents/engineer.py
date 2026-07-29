@@ -97,6 +97,13 @@ class EngineerAgent(BaseAgent):
                     "BROWSER CONSOLE ERRORS (REAL errors — YOU MUST FIX THEM):\n"
                     + "\n".join(f"- {e}" for e in console_errors)
                     + "\n\n"
+                    "DEBUGGING CHECKLIST:\n"
+                    "1. Check for mismatched/missing braces {}, brackets [], parentheses ()\n"
+                    "2. Check for missing commas in arrays and objects\n"
+                    "3. Check for unclosed strings or template literals\n"
+                    "4. Check for syntax errors near the reported line\n"
+                    "5. Verify all functions are properly closed\n"
+                    "6. Verify all HTML tags are properly closed\n\n"
                 )
             prompt += (
                 "Make the requested changes to the existing code. "

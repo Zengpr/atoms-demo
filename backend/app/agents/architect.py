@@ -27,13 +27,17 @@ class ArchitectAgent(BaseAgent):
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
         prd = context.get("prd", "")
+        original_request = context.get("original_request", task)
         prompt = (
             f"As architect Bob, design the architecture for this project:\n\n"
-            f"Request: {task}\n\n"
+            f"ORIGINAL USER REQUEST: {original_request}\n"
+            f"YOUR ASSIGNMENT: {task}\n\n"
+            f"CRITICAL: Design architecture for the EXACT product the user requested. "
+            f"If they asked for a calculator, design a calculator — NOT a different product.\n\n"
             f"PRD: {prd}\n\n"
             f"Create an architecture document with:\n"
             f"- tech_stack: {{frontend, styling, icons}} for the web app\n"
-            f"- component_structure: Array of {{name, description}}\n"
+            f"- component_structure: Array of {{name, description}} — components for THIS specific product\n"
             f"- design_system: {{colors, typography, spacing, border_radius}}\n\n"
             f"Since the generated web app renders in an iframe, use HTML5 + CSS3 + vanilla JS.\n"
             f"Output in JSON format."

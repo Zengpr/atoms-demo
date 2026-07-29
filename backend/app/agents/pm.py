@@ -26,13 +26,18 @@ class PMAgent(BaseAgent):
         return "👩‍💻"
 
     def _build_think_prompt(self, task: str, context: dict[str, Any]) -> str:
+        original_request = context.get("original_request", task)
         return (
-            f"As product manager Emma, analyze this request and create a PRD:\n\n"
-            f"Request: {task}\n\n"
+            f"As product manager Emma, create a PRD for the following product.\n\n"
+            f"ORIGINAL USER REQUEST: {original_request}\n"
+            f"YOUR ASSIGNMENT: {task}\n\n"
+            f"CRITICAL: The PRD MUST be for the product the user actually requested. "
+            f"If the user asked for a calculator, the PRD is for a calculator — NOT a health app, NOT a dashboard, NOT anything else. "
+            f"Stay strictly on-topic. Do not invent a different product.\n\n"
             f"Create a product requirements document with:\n"
-            f"- title: PRD title\n"
-            f"- overview: Product overview\n"
-            f"- features: Array of {{name, description, priority}}\n"
+            f"- title: Product name matching the user's request\n"
+            f"- overview: Product overview matching the user's request\n"
+            f"- features: Array of {{name, description, priority}} — features for THIS specific product\n"
             f"- user_stories: Array of user story strings\n"
             f"- acceptance_criteria: Array of acceptance criteria strings\n\n"
             f"Output in JSON format."

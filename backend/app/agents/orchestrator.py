@@ -379,9 +379,11 @@ class Orchestrator:
 
         if agent_key == "engineer":
             engineer_task = f"ORIGINAL USER REQUEST: {task}\n\nYOUR ASSIGNMENT: {step_task}"
+            step_context = dict(context)
+            step_context["original_request"] = task
             full_text = ""
             code_started = False
-            async for ev in _stream_llm_as_events(agent, "act_stream", engineer_task, context, f"{agent.avatar_emoji} {agent.name} 正在生成代码..."):
+            async for ev in _stream_llm_as_events(agent, "act_stream", engineer_task, step_context, f"{agent.avatar_emoji} {agent.name} 正在生成代码..."):
                 if ev["event"] == "agent_stream":
                     full_text += ev["data"].get("chunk", "")
                     if not code_started:
@@ -475,6 +477,7 @@ class Orchestrator:
         leader = self.agents["leader"]
         enriched_context = dict(context)
         enriched_context["mode"] = "team"
+        enriched_context["original_request"] = task
         if context.get("previous_code"):
             enriched_context["is_iteration"] = True
         total_start = time.time()
@@ -494,7 +497,7 @@ class Orchestrator:
 
         plan_data = _try_parse_json(leader_text)
         if not plan_data:
-            plan_data = {"plan": leader_text[:200], "steps": [], "summary": "Executing full team pipeline"}
+            plan_data = {"plan": leader_text[:200], "steps": [], "summary": "Assigning engineer directly"}
 
         plan_summary = plan_data.get("plan", leader_text[:200])
         steps = plan_data.get("steps", [])
@@ -505,9 +508,7 @@ class Orchestrator:
 
         if not steps:
             steps = [
-                {"agent": "pm", "task": f"Analyze requirements for: {task}"},
-                {"agent": "architect", "task": f"Design architecture for: {task}"},
-                {"agent": "engineer", "task": f"Implement: {task}"},
+                {"agent": "engineer", "task": f"ORIGINAL REQUEST: {task}\nYOUR TASK: Build a complete, working web application"},
             ]
 
         yield {
@@ -529,13 +530,19 @@ class Orchestrator:
 
         total_duration = int((time.time() - total_start) * 1000)
 
+        agent_names = list(dict.fromkeys([self.agents.get(s.get('agent', ''), self.agents['engineer']).name for s in steps]))
+        if len(agent_names) == 1 and agent_names[0] == "Alex":
+            completion_msg = "应用已生成！在右侧预览结果，或告诉我需要调整什么。"
+        else:
+            completion_msg = f"完成！执行了 {len(steps)} 个步骤。在右侧预览结果，或告诉我需要调整什么。"
+
         yield {
             "event": "message_complete",
             "data": {
                 "agent": leader.name,
-                "message": f"团队协作完成！执行了 {len(steps)} 个步骤。在右侧预览结果，或告诉我需要调整什么。",
+                "message": completion_msg,
                 "duration_ms": total_duration,
-                "agents_used": list(dict.fromkeys([leader.name] + [self.agents.get(s.get('agent', ''), self.agents['engineer']).name for s in steps])),
+                "agents_used": list(dict.fromkeys([leader.name] + agent_names)),
             },
         }
 
