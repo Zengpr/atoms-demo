@@ -425,13 +425,15 @@ export function ChatPanel({ projectId, prefillText, onPrefillConsumed }: ChatPan
             createdAt: new Date().toISOString(),
           });
         }
-      } catch (err) {
+      } catch (err: unknown) {
         if (abortController.signal.aborted) return;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error("[ChatPanel] SSE error:", errMsg);
         addMessage({
           id: crypto.randomUUID(),
           conversationId: projectId,
           role: "assistant",
-          content: "抱歉，发生了错误，请重试。",
+          content: `抱歉，发生了错误：${errMsg}`,
           metadata: { error: true },
           createdAt: new Date().toISOString(),
         });
