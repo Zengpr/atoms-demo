@@ -17,11 +17,9 @@ interface MessageBubbleProps {
 }
 
 const ITERATION_SUGGESTIONS = [
-  "把配色方案改成暖色调",
-  "添加深色模式切换",
-  "让布局更紧凑",
-  "添加动画和过渡效果",
-  "添加联系表单",
+  "修复发现的问题",
+  "调整样式和布局",
+  "添加新功能",
 ];
 
 interface ActionItemProps {

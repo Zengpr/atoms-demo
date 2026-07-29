@@ -376,11 +376,34 @@ class Orchestrator:
             "data": {"agent": engineer.name, "code": code, "duration_ms": duration},
         }
 
+        pre_code_text = ""
+        if not code_started and full_text.strip():
+            pre_code_text = re.sub(r'```.*?```', '', full_text, flags=re.DOTALL).strip()
+        elif code_started:
+            code_idx = _find_code_start(full_text)
+            if code_idx > 0:
+                pre_code_text = full_text[:code_idx].strip()
+                pre_code_text = re.sub(r'```.*?$', '', pre_code_text, flags=re.DOTALL).strip()
+
+        if pre_code_text:
+            summary = pre_code_text[:500].strip()
+        else:
+            summary = ""
+
+        completion_msg = (
+            f"✅ 应用已生成！\n\n{summary}\n\n"
+            "如果发现问题或需要修改，直接告诉我——比如：修复bug、调整样式、添加功能。"
+        ) if summary else (
+            "✅ 应用已生成！你可以在右侧预览效果。\n\n"
+            "如果发现问题（比如页面空白、按钮不工作、布局错乱），直接告诉我，我会修复。\n"
+            "需要修改也可以说，比如：换个配色、加个功能、改布局。"
+        )
+
         yield {
             "event": "message_complete",
             "data": {
                 "agent": engineer.name,
-                "message": "应用已生成！您可以在右侧预览，或告诉我需要修改什么——我可以调整设计、布局、颜色或添加新功能。",
+                "message": completion_msg,
                 "duration_ms": duration,
             },
         }
