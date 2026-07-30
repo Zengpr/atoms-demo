@@ -143,8 +143,6 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
     return null;
   }, [message.metadata]);
 
-  const isStillThinking = isStreaming && !!streamText;
-
   const isAction = useMemo(() => {
     return message.metadata?.action === true;
   }, [message.metadata]);
@@ -248,50 +246,16 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
       )}
 
       <div className="pl-8">
-        {thinkingData && !streamText && (
-          <div className="think-merge-container mb-2">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <div className="flex gap-0.5">
-                <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ backgroundColor: agentColor }} />
-                <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ backgroundColor: agentColor }} />
-                <span className="h-1.5 w-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ backgroundColor: agentColor }} />
-              </div>
-              <span>{thinkingData}</span>
-            </div>
-          </div>
-        )}
-
-        {streamText && (
-          <div className="think-merge-container mb-2">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-zinc-500 font-medium">{isStillThinking ? "思考中" : "思考完成"}</span>
-                <span className="h-1 w-1 rounded-full bg-atoms-accent animate-pulse-glow" />
-              </div>
-              <button
-                onClick={() => setThinkExpanded(!thinkExpanded)}
-                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors rounded px-1.5 py-0.5 hover:bg-white/5"
-              >
-                {thinkExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                {thinkExpanded ? "收起" : "查看详情"}
-              </button>
-            </div>
-            <AnimatePresence>
-              {thinkExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="text-sm text-zinc-300 leading-relaxed mb-1 whitespace-pre-wrap">
-                    {streamText.length > 2000 ? streamText.slice(0, 2000) + "..." : streamText}
-                  </div>
-                </motion.div>
+        {(thinkingData || streamText) && (
+          <div className="mb-2">
+            <div className="text-sm text-zinc-400 leading-relaxed whitespace-pre-wrap">
+              {streamText
+                ? (streamText.length > 2000 ? streamText.slice(0, 2000) + "..." : streamText)
+                : thinkingData}
+              {isStreaming && (
+                <span className="inline-block w-1.5 h-4 animate-pulse rounded-sm ml-0.5" style={{ backgroundColor: agentColor, opacity: 0.6 }} />
               )}
-            </AnimatePresence>
-            <span className="inline-block w-1.5 h-4 animate-pulse rounded-sm" style={{ backgroundColor: agentColor, opacity: 0.6 }} />
+            </div>
           </div>
         )}
 
