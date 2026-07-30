@@ -2,7 +2,7 @@
 
 # Atoms Demo - AI Agent 驱动的代码生成平台
 
-**深度赋智 (DeepSeek/ROOT) 面试项目** · 目标岗位：AI Native 全栈工程师
+**深度赋智 (ROOT) 面试项目** · 目标岗位：AI Native 全栈工程师
 
 [![Demo](https://img.shields.io/badge/Demo-在线体验-blue?style=for-the-badge)](https://frontend-production-e558.up.railway.app)
 [![Backend](https://img.shields.io/badge/API-Railway-green?style=for-the-badge)](https://backend-api-production-8923.up.railway.app/docs)
@@ -28,7 +28,7 @@ Atoms Demo 是一个受 [Atoms.dev](https://atoms.dev) 启发的 AI Agent 驱动
 | **游客模式** | 首页点击 "Try as Guest" 按钮，一键创建临时账号，无需注册 |
 | **测试账号** | 邮箱: `demo@atoms-demo.app`，密码: `demo2024`（预置项目，直接可用） |
 
-> ⚠️ 使用真实 LLM (agnes-2.0-flash)，非 Mock。生成代码使用 Tailwind CSS + Inter 字体。
+> ⚠️ 使用真实 LLM (DeepSeek V4 Pro)，非 Mock。生成代码使用 Tailwind CSS + Inter 字体。国内直连可用。
 
 ---
 
@@ -37,11 +37,13 @@ Atoms Demo 是一个受 [Atoms.dev](https://atoms.dev) 启发的 AI Agent 驱动
 | 特性 | 说明 |
 |------|------|
 | 🤖 **多 Agent 协作** | 8 个专业化角色（Mike/Emma/Bob/Alex/Iris/Sarah/Adrian/David）以 SOP 流程协同工作 |
-| ⚡ **SSE 实时流式** | Agent 思考、执行、代码生成过程全程可视化，体验如同观察真实团队协作 |
+| ⚡ **SSE 实时流式** | Agent 思考（含设计文档）、执行、代码生成过程全程可视化，体验如同观察真实团队协作 |
 | 👁️ **实时预览** | iframe sandbox 渲染生成的 HTML/CSS/JS，支持 PC / Tablet / Mobile 视口切换 |
-| 🔄 **4 种执行模式** | Engineer（快速单 Agent） / Team（多 Agent SOP） / Race（多模型竞速） / Research（深度研究） |
-| 🔐 **用户认证** | JWT Token + SQLite 持久化，注册/登录/鉴权完整闭环 |
+| 🔄 **5 种执行模式** | Engineer（快速单 Agent） / Team（多 Agent SOP） / Race（多模型竞速） / Research（深度研究） / Review（审查修复） |
+| 🔐 **用户认证** | JWT Token + SQLite 持久化，注册/登录/鉴权完整闭环，游客一键体验 |
 | 📝 **代码版本管理** | 每次生成自动保存版本快照，代码可编辑并实时同步预览 |
+| 🛡️ **截断修复** | 自动检测 JS 截断（括号不平衡/未闭合 script），最多 3 次自动续写 |
+| 🧠 **Think Step** | Engineer 代码生成前先输出设计文档（功能规划/技术方案/UI设计），流式展示完整实现过程 |
 | 🎨 **暗色主题专业 UI** | Framer Motion 动画 + Tailwind CSS + 自定义 Design Token，视觉体验对标 Atoms 原版 |
 
 ---
@@ -67,7 +69,7 @@ Atoms Demo 是一个受 [Atoms.dev](https://atoms.dev) 启发的 AI Agent 驱动
 |------|------|------|
 | Python FastAPI | 0.104+ | 高性能异步 API 框架 |
 | SQLAlchemy | 2.0+ | ORM（支持 SQLite / PostgreSQL） |
-| OpenAI SDK | 1.6+ | 兼容 OpenAI API 的 LLM 调用（Agnes AI / DeepSeek / GPT 等） |
+| OpenAI SDK | 1.6+ | 兼容 OpenAI API 的 LLM 调用（DeepSeek V4 Pro / GPT 等） |
 | sse-starlette | 1.8+ | SSE 流式响应 |
 | python-jose | 3.3+ | JWT Token 生成与验证 |
 | passlib | 1.7+ | bcrypt 密码哈希 |
@@ -80,8 +82,8 @@ Atoms Demo 是一个受 [Atoms.dev](https://atoms.dev) 启发的 AI Agent 驱动
 | SQLite | 开发环境零配置数据库 |
 | PostgreSQL | 生产环境数据库（SQLAlchemy 无缝迁移） |
 | Docker Compose | 一键启动前后端 + 数据卷持久化 |
-| Vercel | 前端部署 |
-| Railway | 后端部署 |
+| Vercel | 前端部署（国内 DNS 污染，改用 Railway） |
+| Railway | 前端 + 后端部署 |
 
 ---
 
@@ -140,7 +142,8 @@ Atoms Demo 是一个受 [Atoms.dev](https://atoms.dev) 启发的 AI Agent 驱动
 │                      │                                           │
 │  ┌───────────────────┴────────────────────────────────────────┐ │
 │  │                   LLM Provider Layer                       │ │
-│  │   OpenAI-compatible API · Agnes AI · DeepSeek · GPT-4o    │ │
+│  │   OpenAI-compatible API · DeepSeek V4 Pro · GPT-4o        │ │
+│  │   自动截断续写(3次) + Think Step设计文档 + 600s超时保护    │ │
 │  │   (无 API Key 时自动降级为 Mock 模式，完整流程可演示)        │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                 │
@@ -173,7 +176,11 @@ pip install -r requirements.txt
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env，填入 OPENAI_API_KEY 和 OPENAI_BASE_URL（可选，不填则使用 Mock 模式）
+# 编辑 .env，填入 OPENAI_API_KEY, OPENAI_BASE_URL, LLM_MODEL
+# 推荐 DeepSeek V4 Pro（国内可用）:
+#   OPENAI_API_KEY=sk-xxx
+#   OPENAI_BASE_URL=https://api.deepseek.com
+#   LLM_MODEL=deepseek-v4-pro
 
 # 启动服务
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -320,19 +327,24 @@ atoms-demo/
 
 ## 核心流程说明
 
-### Engineer Mode — 快速单 Agent 生成
+### Engineer Mode — 快速单 Agent 生成（含 Think Step）
 
 ```
 用户输入 "做一个计算器应用"
         │
         ▼
-   Alex (Engineer) ─── 思考：分析需求 ─── 执行：直接生成代码
+   Alex (Engineer)
+   ├── Think Step: 分析需求→输出设计文档（功能规划/技术方案/UI设计/关卡设计）
+   │   (流式展示为 agent_stream + agent_thinking 事件)
+   └── Act Step: 1句中文总结 + 完整代码
         │
         ▼
    代码生成 → iframe 实时预览
 ```
 
-**适用场景**：简单应用、快速原型、需求明确时直接出代码。
+**适用场景**：简单应用、快速原型、需求明确时直接出代码。默认模式。
+
+**Think Step 机制**：代码生成前先让 LLM 输出结构化设计文档（max_tokens=2048），流式显示给用户，让生成过程透明可理解。设计文档与代码分离，避免设计文本被 `extract_html()` 误提取导致 iframe 空白。
 
 ### Team Mode — 多 Agent SOP 协作
 
@@ -342,6 +354,7 @@ atoms-demo/
         ▼
    Mike (Leader) ─── 思考：任务分解 ─── 执行：制定执行计划
         │  "Emma 分析需求 → Bob 设计架构 → Alex 实现"
+        │  (简单迭代时 Mike 直接指派 Alex，跳过 PM/Architect)
         ▼
    Emma (PM) ─── 思考：需求分析 ─── 执行：输出 PRD（功能列表/用户故事/验收标准）
         │
@@ -349,13 +362,15 @@ atoms-demo/
    Bob (Architect) ─── 思考：技术选型 ─── 执行：输出架构文档（技术栈/组件结构/设计系统）
         │
         ▼
-   Alex (Engineer) ─── 思考：实现规划 ─── 执行：基于 PRD + 架构生成完整代码
+   Alex (Engineer)
+   ├── Think Step: 输出设计文档
+   └── Act Step: 基于 PRD + 架构生成完整代码
         │
         ▼
    代码生成 → iframe 实时预览
 ```
 
-**适用场景**：复杂应用、需要需求分析和架构设计的项目。每个 Agent 的输出作为下一个 Agent 的输入（`enriched_context`），形成完整的 SOP 流水线。
+**适用场景**：复杂应用、需要需求分析和架构设计的项目。每个 Agent 的输出作为下一个 Agent 的输入（`enriched_context`），形成完整的 SOP 流水线。Leader 对简单修改默认只派 Engineer，不走全 pipeline。
 
 ### Race Mode — 同模型不同策略并行
 
@@ -386,6 +401,23 @@ atoms-demo/
 
 **适用场景**：技术调研、方案评估、知识整理。不生成代码，输出结构化研究报告。
 
+### Review Mode — 审查修复
+
+```
+用户输入 "修复这个项目的 Bug"
+        │
+        ▼
+   Iris (Reviewer) ─── 审查代码 ─── 输出问题列表 + 修复建议
+        │
+        ▼
+   Alex (Engineer) ─── 基于审查结果修复代码
+        │
+        ▼
+   代码更新 → iframe 实时预览
+```
+
+**适用场景**：代码审查、Bug 修复、质量改进。
+
 ---
 
 ## 实现思路与关键取舍
@@ -405,8 +437,7 @@ atoms-demo/
 
 采用 `OPENAI_BASE_URL + OPENAI_API_KEY + LLM_MODEL` 三参数配置，兼容所有 OpenAI API 格式的提供商：
 
-- **Agnes AI** (`agnes-2.0-flash`) — 默认模型
-- **DeepSeek** (`deepseek-chat`) — 国产高性价比
+- **DeepSeek V4 Pro** (`deepseek-v4-pro`) — 当前生产模型，国内可用，65K token 输出
 - **OpenAI GPT-4o** — 能力最强
 - **本地模型** (Ollama/vLLM) — 隐私敏感场景
 
@@ -451,22 +482,37 @@ Mock 模式下**整个流程可完整演示**，包括 SSE 事件推送、Agent 
 | 功能 | 状态 | 说明 |
 |------|------|------|
 | 用户注册/登录/JWT 认证 | ✅ | 完整闭环，bcrypt 密码哈希 + 7天有效期 Token |
+| 游客一键体验 | ✅ | 首页 "Try as Guest" 按钮，无需注册 |
 | 项目 CRUD 和版本管理 | ✅ | 创建/列表/详情/删除 + 代码版本快照 |
-| Engineer Mode | ✅ | 单 Agent 快速生成，SSE 流式输出 |
-| Team Mode | ✅ | Mike→Emma→Bob→Alex 四 Agent SOP 协作 |
+| Engineer Mode (含 Think Step) | ✅ | 设计文档流式输出 → 代码生成，默认模式 |
+| Team Mode | ✅ | Mike→Emma→Bob→Alex 四 Agent SOP 协作，简单迭代智能跳步 |
 | Race Mode | ✅ | 同模型不同 Prompt 策略并行生成双变体，A/B 版本对比 |
 | Research Mode | ✅ | Iris 深度研究 + Markdown 渲染 |
+| Review Mode | ✅ | Iris审查代码→Alex修复改进 |
 | SSE 实时流式输出 | ✅ | agent_thinking / agent_stream / agent_action / code_generated / message_complete 五类事件 |
-| iframe 实时代码预览 | ✅ | PC / Tablet / Mobile 视口切换 |
+| Think Step 设计文档 | ✅ | Engineer 代码生成前输出功能规划/技术方案/UI设计，max_tokens=2048 |
+| 截断检测+自动续写 | ✅ | 检测最后一个 script 块未闭合，最多 3 次自动续写 |
+| LLM 超时保护 | ✅ | 总超时 600s + httpx Timeout(30/600/30/30) |
+| iframe 实时代码预览 | ✅ | PC / Tablet / Mobile 视口切换，0 sandbox 错误 |
 | Monaco Editor 代码编辑 | ✅ | 语法高亮，可编辑并实时同步预览 |
 | 迭代修改 | ✅ | 基于对话历史 + 上次代码上下文，Agent 在已有代码上增量修改 |
+| Console 错误自动修复 | ✅ | iframe 错误捕获→自动反馈给 AI 修复 |
 | 代码恢复 | ✅ | 页面刷新后从 /latest-code 端点恢复预览 |
 | Agent 工作流可视化 | ✅ | 实时展示当前活跃 Agent 和执行进度 |
-| 项目设置/部署/删除 | ✅ | 编辑项目名称/描述/模式 + Deploy 按钮 + 删除项目 |
+| 模板/Remix系统 | ✅ | 8个预置模板 + 后端Templates API |
+| 版本历史UI + 一键回滚 | ✅ | Versions标签页 + Restore API |
+| 真实Deploy | ✅ | 生成公开URL，无需登录即可访问 |
+| 文件树 | ✅ | FileTree组件，解析HTML→CSS/JS/HTML结构 |
+| 上传文件/附件 | ✅ | 📎附件按钮+后端file_contexts传递给Agent |
+| 下载项目文件 | ✅ | 一键下载HTML，Preview工具栏 |
+| Issue Report | ✅ | 🐛一键修Bug按钮，自动生成修复请求 |
 | 暗色主题 UI | ✅ | 自定义 Design Token + Framer Motion 动画 |
+| 全站中文 UI | ✅ | 所有文案和 Agent 回复均中文 |
 | Mock 模式 | ✅ | 无 API Key 完整流程可演示 |
 | Docker Compose 一键部署 | ✅ | 前后端 + 数据卷，`docker-compose up` 即用 |
 | OpenAI API 文档 | ✅ | FastAPI 自动生成 Swagger UI |
+| Railway 线上部署 | ✅ | 前端+后端均 Online，E2E 全验证通过 |
+| 大型项目 E2E 验证 | ✅ | Mario 57K/Dashboard 31K/Ecommerce 33K/Snake 35K/KOF 61K 全通过 |
 
 ---
 
@@ -474,15 +520,15 @@ Mock 模式下**整个流程可完整演示**，包括 SSE 事件推送、Agent 
 
 ### P0 — 核心竞争力提升
 
-- **接入更多 LLM 提供商**：DeepSeek V3、GPT-4o、Claude 3.5 Sonnet，支持 Race Mode 跨模型对比（目前 Race Mode 用同一模型不同 Prompt）
-- **可视化拖拽编辑器**：类似 Atoms 的 Visual Editor，点击预览中的元素即可定位到对应代码行并编辑，修改后热更新预览
-- **更丰富的 Mock 模板**：E-commerce、Blog、CRM 等更多场景模板，让无 API Key 的演示体验更丰富
+- **SEARCH/REPLACE diff 迭代**：Aider 风格差量编辑，避免每次完整重写，节省 token、加速迭代
+- **PostgreSQL 迁移**：SQLAlchemy 抽象已就绪，换连接字符串即可，解决 SQLite 并发瓶颈
+- **跨模型 Race**：接入 Claude/GPT/DeepSeek 多模型对比（目前 Race 用同一模型不同 Prompt）
 
 ### P1 — 产品完整度
 
-- **Supabase 后端集成**：用户认证、实时数据库、AI Wallet 计费，替代自建 Auth + SQLite
-- **代码导出和 GitHub 同步**：生成的代码一键推送到 GitHub 仓库，支持持续迭代
-- **对话历史持久化与回放**：完整保存每次对话的 Agent 执行日志，支持回放和分享
+- **视觉自验证循环**：Headless 浏览器截图→LLM 对比→自动修复，代码质量闭环
+- **Visual Editor**：点击预览元素→侧边栏编辑属性，对标 Atoms 拖拽式编辑器
+- **@-mention 指定 Agent**：用户可通过 @Alex 直接指定 Agent
 - **代码 Diff 可视化**：迭代修改时展示代码变更差异
 
 ### P2 — 生态扩展
@@ -591,11 +637,11 @@ Engineer Agent 基于已有代码进行增量修改，而非从零生成。Mock 
 
 | 事件 | 方向 | 数据格式 | 说明 |
 |------|------|----------|------|
-| `agent_thinking` | Server → Client | `{agent, emoji, message}` | Agent 开始思考，显示 spinner |
-| `agent_stream` | Server → Client | `{agent, emoji, chunk}` | 思考过程文本片段（打字机效果） |
-| `agent_action` | Server → Client | `{agent, emoji, action, duration_ms, ...}` | Agent 完成一步操作 |
-| `code_generated` | Server → Client | `{agent, code, duration_ms}` | 完整代码生成 |
-| `message_complete` | Server → Client | `{agent, message, duration_ms, agents_used}` | 整轮对话结束 |
+| `agent_thinking` | Server → Client | `{agent, emoji, message}` | Agent 开始思考，显示 spinner（同一 agent 去重，不重复创建） |
+| `agent_stream` | Server → Client | `{agent, emoji, chunk}` | 思考过程/设计文档文本片段（打字机效果，最多显示 2000 字符） |
+| `agent_action` | Server → Client | `{agent, emoji, action, duration_ms, ...}` | Agent 完成一步操作（含 PRD/架构/代码富内容展示） |
+| `code_generated` | Server → Client | `{agent, code, duration_ms}` | 完整代码生成，自动刷新 Preview |
+| `message_complete` | Server → Client | `{agent, message, duration_ms, agents_used}` | 整轮对话结束（动态完成消息，包含 LLM 实际输出内容） |
 
 前端通过 `async generator` 消费 SSE 流：
 
@@ -614,12 +660,12 @@ async function* streamChat(projectId, content, mode): AsyncGenerator<SSEMessage>
 class Orchestrator:
     async def run(self, user_message, mode, context) -> AsyncIterator[dict]:
         if mode == "engineer":
-            # 单 Agent 快速路径
+            # Think Step(设计文档) + 单 Agent 快速路径
             async for event in self._run_engineer(user_message, context):
                 yield event
 
         elif mode == "team":
-            # SOP 流水线：Mike → Emma → Bob → Alex
+            # SOP 流水线：Mike → Emma → Bob → Alex（简单迭代跳步）
             async for event in self._run_team(user_message, context):
                 yield event
 
@@ -632,14 +678,26 @@ class Orchestrator:
             # 深度研究：Iris 独立执行
             async for event in self._run_research(user_message, context):
                 yield event
+
+        elif mode == "review":
+            # 审查修复：Iris 审查 → Alex 修复
+            async for event in self._run_review(user_message, context):
+                yield event
 ```
 
 每种模式的 SSE 事件序列：
 
-- **Engineer**: `agent_thinking → agent_stream* → agent_action → code_generated → message_complete`
-- **Team**: 4 组 `agent_thinking → agent_stream* → agent_action` → `code_generated → message_complete`
+- **Engineer**: `agent_thinking → agent_stream*(设计文档) → agent_thinking → agent_stream*(代码) → agent_action → code_generated → message_complete`
+- **Team**: 4 组 `agent_thinking → agent_stream* → agent_action` → `code_generated → message_complete`（Leader 智能跳步）
 - **Race**: 2 组并行 `agent_thinking → agent_stream* → agent_action` → 2 个 `code_generated` → `message_complete`
 - **Research**: `agent_thinking → agent_stream* → agent_action → message_complete`
+- **Review**: 2 组 `agent_thinking → agent_stream* → agent_action` → `code_generated → message_complete`
+
+**关键保护机制**：
+- **截断续写**：`is_js_truncated()` 检测最后一个 `<script>` 块未闭合或 HTML 结尾缺少 `</script></body></html>`，自动调用 `_continue_code()` 续写，最多 3 次
+- **超时保护**：`LLM_TOTAL_TIMEOUT=600s` 总超时 + httpx `connect=30s, read=600s`
+- **Heartbeat 限制**：`MAX_HEARTBEATS=2`，防止无限心跳占用连接
+- **JSON 解析容错**：`_try_parse_json()` 支持 markdown fence 提取 + brace fallback
 
 #### 3.4 前端状态管理
 
@@ -753,29 +811,84 @@ const { code } = await projectApi.getLatestCode(projectId);
 if (code) setPreviewHtml(code);
 ```
 
+#### 4.6 Think Step — 设计文档与代码分离
+
+**问题**：Engineer prompt 在代码前输出设计文档文本，被 `extract_html()` 误提取导致 iframe 渲染空白。
+
+**解决**：将设计文档拆为独立 LLM 调用（Think Step），通过 `agent_stream` 事件流式显示，代码在后续 Act Step 单独生成：
+
+```python
+# Think Step: max_tokens=2048, 输出设计文档
+async for chunk in agent.think(...):
+    yield {"event": "agent_stream", "data": {...chunk...}}
+
+# Act Step: max_tokens=65536, 只输出1句中文总结+代码
+async for event in agent.act(...):
+    yield event
+```
+
+#### 4.7 截断检测与自动续写
+
+**问题**：大型游戏/应用代码超过 65K token 限制，LLM 输出截断导致 JS 括号不匹配、`</script>` 缺失。
+
+**解决**：`is_js_truncated()` 检查**最后一个** `<script>` 块（非第一个，因为 Tailwind CDN config 在第一个 script 标签内），以及 HTML 结尾是否包含 `</script></body></html>`：
+
+```python
+def is_js_truncated(html: str) -> bool:
+    last_script = html.rfind('<script')
+    if last_script == -1: return False
+    after = html[last_script:]
+    return '</script>' not in after or not html.rstrip().endswith('</html>')
+```
+
+截断时调用 `_continue_code()` 将已有代码发给 LLM 续写，最多 3 次。
+
+#### 4.8 代理环境处理
+
+**问题**：DeepSeek API 从国内需走系统代理（`HTTP_PROXY=http://127.0.0.1:1088`），但 NVIDIA API 不需要代理。
+
+**解决**：`main.py` 按模型选择性清除/保留代理：
+
+```python
+if "nvidia" in settings.OPENAI_BASE_URL.lower():
+    for key in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+        os.environ.pop(key, None)
+# DeepSeek 保留系统代理 — httpx trust_env=True
+```
+
+#### 4.9 agent_thinking 去重
+
+**问题**：Engineer 模式有 Think + Act 两个步骤，同一 Agent 产生两条 `agent_thinking` 消息。
+
+**解决**：在 SSE 流中按 agent 名称去重，同一 agent 只创建一条 thinking 消息，后续步骤的 stream 追加到同一条消息。
+
 ### 五、工程化实践
 
 | 实践 | 具体措施 |
 |------|----------|
-| **类型安全** | Python: Pydantic Schema 严格类型 + 自动 API 文档；TypeScript: 全量类型定义，`ignoreBuildErrors` 仅用于第三方类型 |
-| **错误防御** | 401 自动清除 token + 引导重新登录；localStorage 坏值检测（`"null"/"undefined"` 字符串）；SSE 流错误捕获 + 友好提示 |
+| **类型安全** | Python: Pydantic Schema 严格类型 + 自动 API 文档；TypeScript: 全量类型定义 |
+| **错误防御** | 401 自动清除 token + 引导重新登录；SSE 流错误捕获 + 友好中文提示；LLM 超时返回中文消息 |
+| **截断修复** | 自动检测 JS 截断 → 3 次续写，大型项目（60K+）E2E 验证全通过 |
 | **分层解耦** | Router(参数校验) → Service(业务逻辑) → Agent(智能编排) → LLM(模型调用)，每层职责清晰 |
 | **优雅降级** | Mock 模式保证无 API Key 时全流程可演示；LLM 调用超时/失败时返回错误事件而非崩溃 |
-| **可测试性** | 34 项 E2E 测试覆盖注册/登录/项目CRUD/4种模式SSE/迭代修改/版本管理/错误处理 |
+| **可测试性** | 35+ 项 E2E 测试覆盖注册/登录/项目CRUD/5种模式SSE/迭代修改/版本管理/大型项目验证 |
 | **Docker 化** | 多阶段构建 + 环境变量注入 + 数据卷持久化，`docker-compose up` 即用 |
 
 ### 六、与 Atoms.dev 对比
 
 | 维度 | Atoms.dev | Atoms Demo | 差距分析 |
 |------|-----------|------------|----------|
-| Agent 角色数 | 7 个（含 QA/DevOps） | 5 个 | 缺少 QA 测试 + DevOps 部署 Agent |
-| 执行模式 | 4 种（Quick/Team/Race/Research） | 4 种 | 完全对齐 |
+| Agent 角色数 | 7 个（含 QA/DevOps） | 8 个（Mike/Emma/Bob/Alex/Iris/Sarah/Adrian/David） | 角色更多，各有独立颜色/emoji/prompt |
+| 执行模式 | 4 种（Quick/Team/Race/Research） | 5 种（+Review 审查修复） | 完全对齐且超出 |
 | 可视化编辑器 | 拖拽式 Visual Editor | Monaco Editor | 这是最大差距，也是最有价值的扩展方向 |
 | 代码沙箱 | Docker 容器 + 独立域名 | iframe sandbox | 安全性较弱，但 Demo 足够 |
-| 部署能力 | 一键部署到 Vercel/Netlify | Deploy 按钮（占位） | 需接入真实部署 API |
+| 部署能力 | 一键部署到 Vercel/Netlify | Deploy 按钮（生成公开URL） | 需接入真实部署 API |
 | App World 社区 | 可浏览/分享生成的应用 | 无 | P2 优先级 |
-| 模板系统 | 10+ 预置模板 | 4 个模板 + 6 个快捷 prompt | 需扩充模板库 |
+| 模板系统 | 10+ 预置模板 | 8 个预置模板 | 需扩充模板库 |
 | 实时协作 | WebSocket 双向通信 | SSE 单向推送 | 对 Demo 足够，生产环境需升级 |
+| 截断修复 | 无公开信息 | 自动检测+3次续写 | 创新特性 |
+| Think Step | 无公开信息 | 设计文档流式输出 | 透明化 AI 决策过程 |
+| LLM 超时保护 | 无公开信息 | 600s超时+友好错误 | 工程健壮性 |
 
 ---
 

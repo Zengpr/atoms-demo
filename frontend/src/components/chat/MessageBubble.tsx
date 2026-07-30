@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/types";
 import { getAgentByName, getAgentColor } from "@/lib/agents";
+import { useChatStore } from "@/lib/store";
 import { format } from "date-fns";
 import Image from "next/image";
 import { ChevronDown, ChevronRight, FileCode, FileText, Play, CheckCircle2, XCircle, Clock } from "lucide-react";
@@ -121,6 +122,7 @@ function AgentAvatar({ name, size = 28 }: { name: string; size?: number }) {
 
 export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const isStreaming = useChatStore((s) => s.isStreaming);
   const agent = message.agentName ? getAgentByName(message.agentName) : null;
   const agentColor = message.agentName ? getAgentColor(message.agentName) : "#6366F1";
   const role = (message.metadata?.role as string) ?? agent?.role ?? "";
@@ -140,6 +142,8 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
     }
     return null;
   }, [message.metadata]);
+
+  const isStillThinking = isStreaming && !!streamText;
 
   const isAction = useMemo(() => {
     return message.metadata?.action === true;
@@ -261,7 +265,7 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
           <div className="think-merge-container mb-2">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-zinc-500 font-medium">思考中</span>
+                <span className="text-[11px] text-zinc-500 font-medium">{isStillThinking ? "思考中" : "思考完成"}</span>
                 <span className="h-1 w-1 rounded-full bg-atoms-accent animate-pulse-glow" />
               </div>
               <button

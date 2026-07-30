@@ -130,7 +130,14 @@ class EngineerAgent(BaseAgent):
                 "- Test every function call mentally — no undefined variables, no broken handlers\n"
                 "- Responsive design for all screen sizes using Tailwind responsive classes\n"
                 "- Must render correctly in an iframe\n\n"
-                "GAME-SPECIFIC RULES (if building a game):\n"
+                "AMBIGUITY RESOLUTION (CRITICAL — read carefully):\n"
+                "- '爬虫' in Chinese usually means 'web crawler/scraper', NOT a crawling insect or worm\n"
+                "- '爬虫网站' = a website for web crawling/scraping, NOT a worm/insect game\n"
+                "- '爬虫工具' = web scraping tool, NOT a bug tool\n"
+                "- If the user mentions '爬虫', build a web scraping/crawling tool or dashboard\n"
+                "- Only interpret as a game if the user EXPLICITLY says '游戏' or describes game mechanics\n"
+                "- Other common tech terms: '爬虫'=crawler, '区块链'=blockchain, '人工智能'=AI, '大数据'=big data\n\n"
+                "GAME-SPECIFIC RULES (only if the user EXPLICITLY requests a game):\n"
                 "- MUST have a proper game loop: start screen → gameplay → game over screen\n"
                 "- MUST have gravity/physics that WORK — character must stand on platforms, not fall through\n"
                 "- Platform collision detection: check bottom of character vs top of platforms\n"
@@ -165,13 +172,20 @@ class EngineerAgent(BaseAgent):
         else:
             prompt = (
                 f"User request: {task}\n\n"
+                "IMPORTANT: '爬虫' means web crawler/scraper, NOT an insect or worm game. "
+                "Only design a game if the user EXPLICITLY mentions '游戏' or describes game mechanics.\n\n"
                 "Write a detailed implementation design in Chinese with these sections:\n"
                 "## 功能规划\n- List ALL features to implement (8-15 items)\n\n"
-                "## 技术方案\n- Core tech: Canvas/WebGL/physics engine/animation approach\n"
+                "## 技术方案\n- Core tech stack and approach (for web apps: HTML/CSS/JS framework; for games: Canvas/physics engine)\n"
                 "- Data structures: key classes and their relationships\n\n"
-                "## UI/交互设计\n- Layout, colors, interaction flow\n- Game screens: start/gameplay/game over\n\n"
-                "## 关卡/内容设计\n- Levels, characters, enemies, items\n- Progression system\n\n"
-                "Be thorough and specific. Do NOT write code."
+                "## UI/交互设计\n- Layout, colors, interaction flow"
+            )
+            if any(kw in task for kw in ["游戏", "game", "Game", "Mario", "Snake", "Pac-Man", "格斗", "棋", "赛车"]):
+                prompt += "\n- Game screens: start/gameplay/game over\n\n"
+                prompt += "## 关卡/内容设计\n- Levels, characters, enemies, items\n- Progression system\n\n"
+            else:
+                prompt += "\n\n"
+            prompt += "Be thorough and specific. Do NOT write code."
             )
         return prompt
 
