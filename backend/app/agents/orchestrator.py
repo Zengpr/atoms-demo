@@ -34,7 +34,7 @@ async def _continue_code(engineer, code: str) -> str:
             engineer.get_act_system_prompt(),
             cont_prompt,
             temperature=0.3,
-            max_tokens=99999999,
+            max_tokens=65536,
         )
         cont_code = result.strip()
         if cont_code.startswith("```"):
@@ -312,7 +312,7 @@ class Orchestrator:
                     idx = pos
             return idx
 
-        gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_act_system_prompt(), act_prompt, temperature=0.4, max_tokens=99999999)
+        gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_act_system_prompt(), act_prompt, temperature=0.4, max_tokens=65536)
         hb = _heartbeat(engineer.name, engineer.avatar_emoji, "正在连接AI模型...")
         act_task = asyncio.create_task(gen.__anext__())
         hb_task = asyncio.create_task(hb.__anext__())
@@ -366,7 +366,7 @@ class Orchestrator:
                         except StopAsyncIteration:
                             pass
                         except Exception as e:
-                            logger.error(f"Engineer stream error: {e}")
+                            logger.error(f"Engineer stream error: {e}", exc_info=True)
                     elif t is hb_task:
                         try:
                             ev = t.result()

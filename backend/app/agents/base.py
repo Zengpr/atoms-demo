@@ -57,7 +57,7 @@ class BaseAgent(ABC):
                 full += chunk
                 yield chunk
             return
-        async for chunk in llm_provider.generate_stream(self.get_act_system_prompt(), prompt, temperature=0.4, max_tokens=99999999):
+        async for chunk in llm_provider.generate_stream(self.get_act_system_prompt(), prompt, temperature=0.4, max_tokens=65536):
             full += chunk
             yield chunk
 

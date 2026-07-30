@@ -1,3 +1,12 @@
+import os
+# DeepSeek API needs proxy from China - use system proxy (1088)
+# Only clear proxy if connecting to NVIDIA (which is blocked by proxy)
+_openai_base = os.environ.get('OPENAI_BASE_URL', '')
+if 'nvidia' in _openai_base:
+    for _k in ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'https_proxy', 'http_proxy', 'all_proxy']:
+        os.environ.pop(_k, None)
+    os.environ['NO_PROXY'] = '*'
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
