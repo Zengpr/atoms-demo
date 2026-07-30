@@ -6,6 +6,69 @@ import logging
 from typing import Any, AsyncIterator
 
 logger = logging.getLogger(__name__)
+
+MAX_CONTINUATION_ATTEMPTS = 2
+
+
+def _is_truncated(code: str) -> bool:
+    if not code:
+        return False
+    script_match = re.search(r'<script[^>]*>(.*)', code, re.DOTALL | re.IGNORECASE)
+    if not script_match:
+        return False
+    script_content = script_match.group(1)
+    if "</script>" in script_content.lower():
+        after_script = code.lower().split("</script>")[-1]
+        if "</html>" in after_script or "</body>" in after_script:
+            return False
+    open_braces = script_content.count("{")
+    close_braces = script_content.count("}")
+    open_brackets = script_content.count("[")
+    close_brackets = script_content.count("]")
+    open_parens = script_content.count("(")
+    close_parens = script_content.count(")")
+    imbalance = (open_braces - close_braces) + (open_brackets - close_brackets) + (open_parens - close_parens)
+    if imbalance > 5:
+        return True
+    if "</script>" not in script_content.lower() and "<script" in code.lower():
+        return True
+    if re.search(r',\s*$', script_content.strip()):
+        return True
+    if re.search(r'\{\s*$', script_content.strip()):
+        return True
+    return False
+
+
+async def _continue_code(engineer: "EngineerAgent", code: str, context: dict[str, Any]) -> str:
+    script_match = re.search(r'<script[^>]*>(.*)', code, re.DOTALL | re.IGNORECASE)
+    if not script_match:
+        return ""
+    script_content = script_match.group(1)
+    last_2000 = script_content[-2000:] if len(script_content) > 2000 else script_content
+    cont_prompt = (
+        "The previous code generation was TRUNCATED. Here is the last part of the code:\n\n"
+        f"```javascript\n{last_2000}\n```\n\n"
+        "CONTINUE the code from EXACTLY where it left off. "
+        "Do NOT repeat any code. Just continue from the truncation point. "
+        "Make sure to properly close all functions, event listeners, and the game loop. "
+        "Close with </script></body></html>.\n\n"
+        "Output ONLY the continuation code — no explanation, no markdown fences."
+    )
+    try:
+        result = await llm_provider.generate(
+            engineer.get_act_system_prompt(),
+            cont_prompt,
+            temperature=0.3,
+            max_tokens=99999999,
+        )
+        cont_code = result.strip()
+        if cont_code.startswith("```"):
+            cont_code = re.sub(r'^```\w*\n?', '', cont_code)
+            cont_code = re.sub(r'\n?```$', '', cont_code)
+        return cont_code
+    except Exception as e:
+        logger.error(f"Continuation failed: {e}")
+        return ""
 from app.agents.base import BaseAgent
 from app.agents.leader import LeaderAgent
 from app.agents.pm import PMAgent
@@ -274,7 +337,7 @@ class Orchestrator:
                     idx = pos
             return idx
 
-        gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_act_system_prompt(), act_prompt, temperature=0.4, max_tokens=32768)
+        gen = engineer.act_stream(task, context) if llm_provider.is_mock else llm_provider.generate_stream(engineer.get_act_system_prompt(), act_prompt, temperature=0.4, max_tokens=99999999)
         hb = _heartbeat(engineer.name, engineer.avatar_emoji, "正在连接AI模型...")
         act_task = asyncio.create_task(gen.__anext__())
         hb_task = asyncio.create_task(hb.__anext__())
@@ -348,6 +411,19 @@ class Orchestrator:
                     pass
 
         code = _extract_html(full_text)
+
+        if code and _is_truncated(code):
+            logger.warning(f"Detected truncated code ({len(code)} chars), attempting continuation...")
+            yield {
+                "event": "agent_thinking",
+                "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"⚠️ 代码被截断，正在续写..."},
+            }
+            cont_text = await _continue_code(engineer, code, context)
+            if cont_text:
+                full_text = full_text + cont_text
+                code = _extract_html(full_text)
+                logger.info(f"After continuation: {len(code)} chars")
+
         if not full_text.strip():
             duration = int((time.time() - start) * 1000)
             yield {
