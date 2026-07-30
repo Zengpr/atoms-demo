@@ -281,9 +281,8 @@ export function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="text-sm text-zinc-300 leading-relaxed mb-1">
-                    {streamText.slice(0, 800)}
-                    {streamText.length > 800 && "..."}
+                  <div className="text-sm text-zinc-300 leading-relaxed mb-1 whitespace-pre-wrap">
+                    {streamText.length > 2000 ? streamText.slice(0, 2000) + "..." : streamText}
                   </div>
                 </motion.div>
               )}

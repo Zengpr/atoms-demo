@@ -75,10 +75,14 @@ class EngineerAgent(BaseAgent):
             "NEVER refuse to write code. NEVER say you cannot provide code. "
             "NEVER wrap code in markdown fences. Start HTML directly. "
             "You MUST use Tailwind CSS via CDN — never write raw CSS in <style> tags. "
-            "IMPORTANT: Before the code, write 2-4 sentences IN CHINESE explaining your implementation plan — "
-            "what features you'll build, what approach you'll take, what the user will see. "
-            "This text goes BEFORE the <!DOCTYPE html> line. Then output the full code. "
-            "ALL non-code text (explanations, descriptions, summaries) MUST be in Chinese (中文)."
+            "IMPORTANT: Before the code, write a DETAILED design document IN CHINESE with these sections:\n"
+            "1. **功能规划** — 列出所有要实现的功能点（5-10项）\n"
+            "2. **技术方案** — 核心技术选型和实现思路（Canvas/WebGL/物理引擎/动画方案等）\n"
+            "3. **UI/交互设计** — 界面布局、配色、交互流程描述\n"
+            "4. **实现步骤** — 按顺序列出开发步骤\n\n"
+            "This design doc goes BEFORE the <!DOCTYPE html> line. Then output the full code. "
+            "ALL non-code text MUST be in Chinese (中文). Make the design doc thorough and impressive — "
+            "this is what the user sees while waiting for code generation."
         )
 
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
@@ -115,7 +119,7 @@ class EngineerAgent(BaseAgent):
                 "If the user reports missing features, add them. "
                 "Output the COMPLETE modified HTML file.\n\n"
                 f"{DESIGN_SYSTEM}\n\n"
-                "START your output with <!DOCTYPE html> — NO explanation, NO markdown fences, NO analysis."
+                "START your output with a brief Chinese description of what you're changing (2-3 sentences), then the COMPLETE modified HTML file starting with <!DOCTYPE html>. NO markdown fences around code."
             )
         else:
             prompt = f"Build a COMPLETE, WORKING web application for:\n\n{task}\n\n"
@@ -146,7 +150,7 @@ class EngineerAgent(BaseAgent):
                 "- ALL sprite graphics: use canvas drawing (fillRect, arc, etc) to create detailed pixel-art characters — NOT plain colored squares\n"
                 "- For Mario-like games: character with hat+face+body+legs drawn in detail, pipes, blocks with textures, clouds, hills\n"
                 "- Before outputting code, MENTALLY TEST: can the character jump? Does it land on ground? Can it walk left/right? Does it collide with enemies?\n\n"
-                "START your output with <!DOCTYPE html> — NO explanation, NO markdown fences, NO analysis."
+                "After your design doc, output the complete HTML file starting with <!DOCTYPE html>. NO markdown fences around code."
             )
 
         return prompt
@@ -164,7 +168,7 @@ class EngineerAgent(BaseAgent):
                 prompt += "Recent conversation:\n" + "\n".join(history[-6:]) + "\n\n"
             prompt += "Briefly describe what needs to change (2-3 sentences). Do NOT write code."
         else:
-            prompt = f"User request: {task}\n\nBriefly describe your implementation plan (2-3 sentences). Do NOT write code."
+            prompt = f"User request: {task}\n\nDescribe your detailed implementation plan in Chinese: 1)功能规划 2)技术方案 3)UI设计思路 4)实现步骤. Do NOT write code."
         return prompt
 
     def _build_analyze_prompt(self, task: str, context: dict[str, Any]) -> str:
