@@ -294,7 +294,30 @@ class Orchestrator:
 
         yield {
             "event": "agent_thinking",
-            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} 正在处理您的请求..."},
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} 正在分析需求，规划实现方案..."},
+        }
+
+        think_prompt = engineer._build_think_prompt(task, context)
+        think_text = ""
+        async for chunk in llm_provider.generate_stream(
+            "You are a senior software engineer. Write a detailed design document in Chinese. Do NOT write any code.",
+            think_prompt, temperature=0.3, max_tokens=2048
+        ):
+            think_text += chunk
+            yield {
+                "event": "agent_stream",
+                "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "chunk": chunk},
+            }
+
+        if think_text.strip():
+            yield {
+                "event": "agent_action",
+                "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "action": think_text.strip()},
+            }
+
+        yield {
+            "event": "agent_thinking",
+            "data": {"agent": engineer.name, "emoji": engineer.avatar_emoji, "message": f"{engineer.avatar_emoji} {engineer.name} 正在编写代码..."},
         }
 
         act_prompt = engineer._build_act_prompt(task, context)

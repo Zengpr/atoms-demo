@@ -75,14 +75,9 @@ class EngineerAgent(BaseAgent):
             "NEVER refuse to write code. NEVER say you cannot provide code. "
             "NEVER wrap code in markdown fences. Start HTML directly. "
             "You MUST use Tailwind CSS via CDN — never write raw CSS in <style> tags. "
-            "IMPORTANT: Before the code, write a DETAILED design document IN CHINESE with these sections:\n"
-            "1. **功能规划** — 列出所有要实现的功能点（5-10项）\n"
-            "2. **技术方案** — 核心技术选型和实现思路（Canvas/WebGL/物理引擎/动画方案等）\n"
-            "3. **UI/交互设计** — 界面布局、配色、交互流程描述\n"
-            "4. **实现步骤** — 按顺序列出开发步骤\n\n"
-            "This design doc goes BEFORE the <!DOCTYPE html> line. Then output the full code. "
-            "ALL non-code text MUST be in Chinese (中文). Make the design doc thorough and impressive — "
-            "this is what the user sees while waiting for code generation."
+            "IMPORTANT: Before the code, write ONE sentence IN CHINESE summarizing what you're building. "
+            "This text goes BEFORE the <!DOCTYPE html> line. Then output the full code. "
+            "ALL non-code text MUST be in Chinese (中文). KEEP the design summary VERY SHORT — most tokens must go to code."
         )
 
     def _build_act_prompt(self, task: str, context: dict[str, Any]) -> str:
@@ -168,7 +163,16 @@ class EngineerAgent(BaseAgent):
                 prompt += "Recent conversation:\n" + "\n".join(history[-6:]) + "\n\n"
             prompt += "Briefly describe what needs to change (2-3 sentences). Do NOT write code."
         else:
-            prompt = f"User request: {task}\n\nDescribe your detailed implementation plan in Chinese: 1)功能规划 2)技术方案 3)UI设计思路 4)实现步骤. Do NOT write code."
+            prompt = (
+                f"User request: {task}\n\n"
+                "Write a detailed implementation design in Chinese with these sections:\n"
+                "## 功能规划\n- List ALL features to implement (8-15 items)\n\n"
+                "## 技术方案\n- Core tech: Canvas/WebGL/physics engine/animation approach\n"
+                "- Data structures: key classes and their relationships\n\n"
+                "## UI/交互设计\n- Layout, colors, interaction flow\n- Game screens: start/gameplay/game over\n\n"
+                "## 关卡/内容设计\n- Levels, characters, enemies, items\n- Progression system\n\n"
+                "Be thorough and specific. Do NOT write code."
+            )
         return prompt
 
     def _build_analyze_prompt(self, task: str, context: dict[str, Any]) -> str:
