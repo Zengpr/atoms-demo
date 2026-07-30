@@ -212,7 +212,7 @@ class LLMProvider:
             self._client = AsyncOpenAI(
                 api_key=self.api_key,
                 base_url=self.base_url,
-                timeout=httpx.Timeout(connect=15.0, read=120.0, write=15.0, pool=15.0),
+                timeout=httpx.Timeout(connect=30.0, read=600.0, write=30.0, pool=30.0),
             )
 
     @property
