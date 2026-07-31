@@ -186,7 +186,6 @@ class EngineerAgent(BaseAgent):
             else:
                 prompt += "\n\n"
             prompt += "Be thorough and specific. Do NOT write code."
-            )
         return prompt
 
     def _build_analyze_prompt(self, task: str, context: dict[str, Any]) -> str:
